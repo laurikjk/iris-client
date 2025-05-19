@@ -1,5 +1,5 @@
 import {CHAT_MESSAGE_KIND, serializeSessionState, Session} from "nostr-double-ratchet/src"
-import {FormEvent, useState, useEffect, useRef, ChangeEvent} from "react"
+import {FormEvent, useState, useEffect, ChangeEvent} from "react"
 import UploadButton from "@/shared/components/button/UploadButton"
 import EmojiButton from "@/shared/components/emoji/EmojiButton"
 import MessageFormReplyPreview from "./MessageFormReplyPreview"
@@ -10,6 +10,7 @@ import {RiAttachment2} from "@remixicon/react"
 import EmojiType from "@/types/emoji"
 import {localState} from "irisdb/src"
 import {MessageType} from "./Message"
+import {useAutosizeTextarea} from "@/shared/hooks/useAutosizeTextarea"
 
 interface MessageFormProps {
   session: Session
@@ -29,16 +30,16 @@ const MessageForm = ({
   isPublicChat = false,
 }: MessageFormProps) => {
   const [newMessage, setNewMessage] = useState("")
-  const inputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useAutosizeTextarea(newMessage)
   const theirPublicKey = id.split(":")[0]
 
   useEffect(() => {
-    if (!isTouchDevice && inputRef.current) {
-      inputRef.current.focus()
+    if (!isTouchDevice && textareaRef.current) {
+      textareaRef.current.focus()
     }
 
-    if (replyingTo && inputRef.current) {
-      inputRef.current.focus()
+    if (replyingTo && textareaRef.current) {
+      textareaRef.current.focus()
     }
 
     const handleEscKey = (event: KeyboardEvent) => {
@@ -102,18 +103,27 @@ const MessageForm = ({
     }
   }
 
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setNewMessage(e.target.value)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (isTouchDevice) return
+
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleSubmit(e as unknown as FormEvent)
+    }
   }
 
   const handleEmojiClick = (emoji: EmojiType) => {
     setNewMessage((prev) => prev + emoji.native)
-    inputRef.current?.focus()
+    textareaRef.current?.focus()
   }
 
   const handleUpload = (url: string) => {
     setNewMessage((prev) => prev + " " + url)
-    inputRef.current?.focus()
+    textareaRef.current?.focus()
   }
 
   return (
@@ -134,17 +144,18 @@ const MessageForm = ({
             text={<RiAttachment2 size={20} />}
           />
         )}
-        <form onSubmit={handleSubmit} className="flex-1 flex gap-2">
+        <form onSubmit={handleSubmit} className="flex-1 flex gap-2 items-center">
           <div className="relative flex-1 flex gap-2 items-center">
             {!isTouchDevice && <EmojiButton onEmojiSelect={handleEmojiClick} />}
-            <input
-              ref={inputRef}
-              type="text"
+            <textarea
+              ref={textareaRef}
               value={newMessage}
               onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
               placeholder="Message"
-              className="flex-1 input input-sm md:input-md input-bordered"
+              className="flex-1 textarea leading-tight resize-none py-2.5 min-h-[2.5rem]"
               aria-label="Message input"
+              rows={1}
             />
           </div>
           <button
