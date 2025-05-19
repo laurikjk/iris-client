@@ -20,7 +20,6 @@ yarn dev
 yarn build
 
 # Run tests
-yarn test        # Unit tests
-yarn test:e2e    # End-to-end tests
-yarn test:e2e:ui # E2E tests with UI mode
+yarn test    # Run all tests
+yarn test:ui # E2E tests with UI mode
 ```
