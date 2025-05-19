@@ -103,5 +103,9 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+    allowedHosts: [
+      "0c50-79-134-105-132.ngrok-free.app",
+      ".ngrok-free.app" // This will allow all ngrok-free.app subdomains
+    ],
   },
 })
