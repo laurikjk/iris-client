@@ -101,7 +101,7 @@ const ReplyPreview = ({isUser, sessionId, replyToId}: ReplyPreviewProps) => {
           />
         )}{" "}
       </div>
-      <div className="truncate max-w-[250px]">{repliedToMessage.content}</div>
+      <div className="truncate max-w-[225px]">{repliedToMessage.content}</div>
     </div>
   )
 }

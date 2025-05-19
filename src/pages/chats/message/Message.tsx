@@ -151,7 +151,7 @@ const Message = ({
       )}
       id={message.id}
     >
-      <div className="flex items-center justify-center gap-2 max-w-[85%] md:max-w-[70%]">
+      <div className="flex items-center justify-center gap-2">
         {isUser && (
           <MessageReactionButton
             messageId={message.id}
