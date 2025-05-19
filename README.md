@@ -5,7 +5,6 @@ Source code for [iris.to](https://iris.to)
 [![CI](https://github.com/irislib/iris-client/actions/workflows/ci.yml/badge.svg)](https://github.com/irislib/iris-client/actions/workflows/ci.yml)
 [![Build Status](https://github.com/irislib/iris-client/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/irislib/iris-client/actions/workflows/ci.yml)
 [![Tests](https://github.com/irislib/iris-client/actions/workflows/ci.yml/badge.svg?branch=main&event=push&label=tests)](https://github.com/irislib/iris-client/actions/workflows/ci.yml)
-[![PageSpeed Insights](https://github.com/irislib/iris-client/actions/workflows/pagespeed.yml/badge.svg)](https://github.com/irislib/iris-client/actions/workflows/pagespeed.yml)
 
 ## Development
 
