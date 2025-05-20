@@ -2,35 +2,23 @@ import ChatContainer from "../components/ChatContainer"
 import {SortedMap} from "@/utils/SortedMap/SortedMap"
 import {comparator} from "../utils/messageGrouping"
 import PrivateChatHeader from "./PrivateChatHeader"
-import {Session} from "nostr-double-ratchet/src"
+import {useSessionsStore} from "@/stores/sessions"
 import MessageForm from "../message/MessageForm"
-import {getSession} from "@/utils/chat/Sessions"
 import {MessageType} from "../message/Message"
 import {useEffect, useState} from "react"
 import {localState} from "irisdb/src"
 
 const Chat = ({id}: {id: string}) => {
+  const {sessions} = useSessionsStore()
   const [messages, setMessages] = useState(
     new SortedMap<string, MessageType>([], comparator)
   )
-  const [session, setSession] = useState<Session | undefined>(undefined)
   const [haveReply, setHaveReply] = useState(false)
   const [haveSent, setHaveSent] = useState(false)
   const [replyingTo, setReplyingTo] = useState<MessageType | undefined>(undefined)
 
   useEffect(() => {
-    const fetchSession = async () => {
-      if (id) {
-        const fetchedSession = await getSession(id)
-        setSession(fetchedSession)
-      }
-    }
-
-    fetchSession()
-  }, [id])
-
-  useEffect(() => {
-    if (!(id && session)) {
+    if (!(id && sessions[id])) {
       return
     }
     setMessages(new SortedMap<string, MessageType>([], comparator))
@@ -62,7 +50,7 @@ const Chat = ({id}: {id: string}) => {
     return () => {
       unsub1()
     }
-  }, [session])
+  }, [sessions])
 
   useEffect(() => {
     if (!id) return
@@ -87,7 +75,7 @@ const Chat = ({id}: {id: string}) => {
     }
   }, [id])
 
-  if (!id || !session) {
+  if (!id || !sessions[id]) {
     return null
   }
 
@@ -96,12 +84,12 @@ const Chat = ({id}: {id: string}) => {
       <PrivateChatHeader id={id} messages={messages} />
       <ChatContainer
         messages={messages}
-        session={session}
+        session={sessions[id]}
         sessionId={id}
         onReply={setReplyingTo}
       />
       <MessageForm
-        session={session}
+        session={sessions[id]}
         id={id}
         replyingTo={replyingTo}
         setReplyingTo={setReplyingTo}
