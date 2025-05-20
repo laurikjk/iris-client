@@ -2,12 +2,11 @@
 import {
   Invite,
   Session,
-  Rumor,
   deserializeSessionState,
   serializeSessionState,
 } from "nostr-double-ratchet/src"
-import type {SessionState} from "nostr-double-ratchet/src"
 import {persist, PersistStorage} from "zustand/middleware"
+import {MessageType} from "@/pages/chats/message/Message"
 import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {Filter, VerifiedEvent} from "nostr-tools"
 import {hexToBytes} from "@noble/hashes/utils"
@@ -23,7 +22,7 @@ const subscribe = (filter: Filter, onEvent: (event: VerifiedEvent) => void) => {
 }
 interface SessionsState {
   sessions: Record<string, Session>
-  messages: Record<string, Rumor[]>
+  messages: Record<string, MessageType[]>
 }
 
 interface SessionsActions {
@@ -32,7 +31,6 @@ interface SessionsActions {
     pubKey: string,
     privKey?: string
   ) => Promise<{sessionId: string; session: Session}>
-  subscribeToSession: (sessionId: string, session: Session) => void
 }
 
 type SessionsStore = SessionsState & SessionsActions
@@ -85,7 +83,7 @@ type SessionStateStorage = {
   }[]
   messages: {
     id: string
-    messages: Rumor[]
+    messages: MessageType[]
   }[]
 }
 
@@ -135,7 +133,7 @@ const storage: PersistStorage<SessionsState> = {
     })
     const storageObject: SessionStateStorage = {
       sessions: sessionStates,
-      messages,
+      messages: messages,
     }
     localStorage.setItem(name, JSON.stringify(storageObject))
   },
@@ -146,31 +144,26 @@ const storage: PersistStorage<SessionsState> = {
 
 export const useSessionsStore = create<SessionsStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       sessions: {},
       messages: {},
       acceptInvite: async (url: string, pubKey: string, privKey?: string) => {
         const {sessionId, session} = await inviteToSession(url, pubKey, privKey)
+        // TODO: subscribe to nostr
         set((state) => ({
           sessions: {...state.sessions, [sessionId]: session},
         }))
-        get().subscribeToSession(sessionId, session)
         return {sessionId, session}
-      },
-      subscribeToSession: (sessionId: string, session: Session) => {
-        session.onEvent((event: Rumor) => {
-          set((state) => ({
-            messages: {
-              ...state.messages,
-              [sessionId]: [...(state.messages[sessionId] || []), event],
-            },
-          }))
-        })
       },
     }),
     {
       name: "sessions",
       storage,
+      onRehydrateStorage: () => {
+        return (state) => {
+          // TODO: subscribe to nostr
+        }
+      },
     }
   )
 )
