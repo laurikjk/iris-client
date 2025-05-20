@@ -1,8 +1,10 @@
+// import {irisStorage} from "@/utils/irisdbZustandStorage"
 import {Invite, Session} from "nostr-double-ratchet/src"
 import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {hexToBytes} from "@noble/hashes/utils"
 import {persist} from "zustand/middleware"
 import {VerifiedEvent} from "nostr-tools"
+import {localState} from "irisdb/src"
 import {ndk} from "@/utils/ndk"
 import {create} from "zustand"
 
@@ -63,6 +65,13 @@ export const useSessionsStore = create<SessionsStore>()(
     }),
     {
       name: "sessions",
+      version: 1,
+      migrate: (persistedState: any) => {
+        if (persistedState) {
+          return persistedState
+        }
+        localState.get("sessions").on((sessions) => {})
+      },
     }
   )
 )
