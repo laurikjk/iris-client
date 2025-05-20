@@ -1,8 +1,13 @@
 // import {irisStorage} from "@/utils/irisdbZustandStorage"
-import {Invite, Session} from "nostr-double-ratchet/src"
+import {
+  Invite,
+  Session,
+  serializeSessionState,
+  deserializeSessionState,
+} from "nostr-double-ratchet/src"
+import {persist, PersistStorage} from "zustand/middleware"
 import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {hexToBytes} from "@noble/hashes/utils"
-import {persist} from "zustand/middleware"
 import {VerifiedEvent} from "nostr-tools"
 import {localState} from "irisdb/src"
 import {ndk} from "@/utils/ndk"
@@ -13,7 +18,11 @@ interface SessionsState {
 }
 
 interface SessionsActions {
-  acceptInvite: (url: string, privKey: string, pubKey: string) => void
+  acceptInvite: (
+    url: string,
+    pubKey: string,
+    privKey?: string
+  ) => Promise<{sessionId: string; session: Session}>
 }
 
 type SessionsStore = SessionsState & SessionsActions
@@ -24,11 +33,18 @@ const makeSessionId = (inviter: string, name: string) => {
 
 const inviteToSession = async (
   url: string,
-  privKey: string,
-  pubKey: string
+  pubKey: string,
+  privKey?: string
 ): Promise<{sessionId: string; session: Session}> => {
   const invite = Invite.fromUrl(url)
-  const encrypt = hexToBytes(privKey)
+  const encrypt = privKey
+    ? hexToBytes(privKey)
+    : async (plaintext: string, pubkey: string) => {
+        if (window.nostr?.nip44) {
+          return window.nostr.nip44.encrypt(plaintext, pubkey)
+        }
+        throw new Error("No nostr extension or private key")
+      }
   const {session, event} = await invite.accept(
     (filter, onEvent) => {
       const sub = ndk().subscribe(filter)
@@ -56,11 +72,12 @@ export const useSessionsStore = create<SessionsStore>()(
   persist(
     (set, get) => ({
       sessions: {},
-      acceptInvite: async (url: string, privKey: string, pubKey: string) => {
-        const {sessionId, session} = await inviteToSession(url, privKey, pubKey)
+      acceptInvite: async (url: string, pubKey: string, privKey?: string) => {
+        const {sessionId, session} = await inviteToSession(url, pubKey, privKey)
         set((state) => ({
           sessions: {...state.sessions, [sessionId]: session},
         }))
+        return {sessionId, session}
       },
     }),
     {

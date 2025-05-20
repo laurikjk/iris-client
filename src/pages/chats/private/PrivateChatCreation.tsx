@@ -1,17 +1,13 @@
 import {useState, useRef, useEffect, ChangeEvent, FormEvent} from "react"
-import {Invite, serializeSessionState} from "nostr-double-ratchet/src"
 import QRCodeButton from "@/shared/components/user/QRCodeButton"
-import {acceptInvite} from "@/shared/hooks/useInviteFromUrl"
 import {useSessionsStore} from "@/stores/sessions"
-import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {getSessions} from "@/utils/chat/Sessions"
-import {nip19, VerifiedEvent} from "nostr-tools"
+import {Invite} from "nostr-double-ratchet/src"
 import {getInvites} from "@/utils/chat/Invites"
-import {hexToBytes} from "@noble/hashes/utils"
 import {useUserStore} from "@/stores/user"
 import {useNavigate} from "react-router"
 import {localState} from "irisdb/src"
-import {ndk} from "@/utils/ndk"
+import {nip19} from "nostr-tools"
 
 const PrivateChatCreation = () => {
   const navigate = useNavigate()
@@ -62,72 +58,8 @@ const PrivateChatCreation = () => {
     }
 
     try {
-      console.log("Processing invite link:", input)
-      const invite = Invite.fromUrl(input)
-      console.log("Invite parsed successfully")
-
-      const encrypt = myPrivKey
-        ? hexToBytes(myPrivKey)
-        : async (plaintext: string, pubkey: string) => {
-            if (window.nostr?.nip44) {
-              return window.nostr.nip44.encrypt(plaintext, pubkey)
-            }
-            throw new Error("No nostr extension or private key")
-          }
-
-      console.log("Accepting invite...")
-      const {session, event} = await invite.accept(
-        (filter, onEvent) => {
-          const sub = ndk().subscribe(filter)
-          sub.on("event", (e) => onEvent(e as unknown as VerifiedEvent))
-          return () => sub.stop()
-        },
-        myPubKey,
-        encrypt
-      )
-      console.log("Invite accepted successfully")
-
-      // Publish the event
-      const e = NDKEventFromRawEvent(event)
-      await e
-        .publish()
-        .then((res) => console.log("published", res))
-        .catch((e) => console.warn("Error publishing event:", e))
-      console.log("published event", event)
-
-      const sessionId = `${invite.inviter}:${session.name}`
-      console.log("Session ID:", sessionId)
-
-      // Save the session
-      try {
-        localState
-          .get(`sessions/${sessionId}/state`)
-          .put(serializeSessionState(session.state))
-        console.log("Session saved to localState using direct path")
-
-        localState
-          .get("sessions")
-          .get(sessionId)
-          .get("state")
-          .put(serializeSessionState(session.state))
-        console.log("Session also saved using nested approach")
-
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-
-        const savedSessions = getSessions()
-        console.log("Current sessions:", Array.from(savedSessions.keys()))
-
-        acceptInviteFromUrl(input, myPrivKey, myPubKey)
-
-        const sessions = useSessionsStore.getState().sessions
-        console.log("Sessions:", sessions)
-
-        // Navigate to the new chat
-        console.log("Navigating to chat with session ID:", sessionId)
-        navigate("/chats/chat", {state: {id: sessionId}})
-      } catch (error) {
-        console.error("Error saving session:", error)
-      }
+      const {sessionId} = await acceptInviteFromUrl(input, myPrivKey, myPubKey)
+      navigate("/chats/chat", {state: {id: sessionId}})
     } catch (error) {
       console.error("Invalid invite link:", error)
     }
@@ -164,8 +96,9 @@ const PrivateChatCreation = () => {
     setInvites(new Map(invites))
   }
 
-  const onScanSuccess = (data: string) => {
-    acceptInvite(data, myPubKey, myPrivKey, navigate)
+  const onScanSuccess = async (data: string) => {
+    const {sessionId} = await acceptInviteFromUrl(data, myPrivKey, myPubKey)
+    navigate("/chats/chat", {state: {id: sessionId}})
   }
 
   if (!myPubKey) {
