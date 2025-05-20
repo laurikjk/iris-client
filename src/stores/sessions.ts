@@ -1,5 +1,11 @@
 // import {irisStorage} from "@/utils/irisdbZustandStorage"
-import {Invite, Session, Rumor} from "nostr-double-ratchet/src"
+import {
+  Invite,
+  Session,
+  Rumor,
+  deserializeSessionState,
+  serializeSessionState,
+} from "nostr-double-ratchet/src"
 import type {SessionState} from "nostr-double-ratchet/src"
 import {persist, PersistStorage} from "zustand/middleware"
 import {NDKEventFromRawEvent} from "@/utils/nostr"
@@ -75,7 +81,7 @@ const inviteToSession = async (
 type SessionStateStorage = {
   sessions: {
     id: string
-    state: SessionState
+    state: string
   }[]
   messages: {
     id: string
@@ -97,7 +103,8 @@ const storage: PersistStorage<SessionsState> = {
     const jsonObject: SessionStateStorage = JSON.parse(value)
 
     const sessions = jsonObject.sessions.map((session) => {
-      return [session.id, new Session(subscribe, session.state)]
+      const state = deserializeSessionState(session.state)
+      return [session.id, new Session(subscribe, state)]
     })
 
     const messages = jsonObject.messages.map((message) => {
@@ -116,7 +123,7 @@ const storage: PersistStorage<SessionsState> = {
       ([sessionId, session]) => {
         return {
           id: sessionId,
-          state: session.state,
+          state: serializeSessionState(session.state),
         }
       }
     )

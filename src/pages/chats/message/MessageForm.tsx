@@ -52,6 +52,7 @@ const MessageForm = ({
   }, [id, isTouchDevice, replyingTo, setReplyingTo])
 
   const handleSubmit = async (e: FormEvent) => {
+    console.log("handleSubmit", session)
     e.preventDefault()
     const text = newMessage.trim()
     if (!text) return
