@@ -1,12 +1,20 @@
 // import {irisStorage} from "@/utils/irisdbZustandStorage"
 import {Invite, Session, Rumor} from "nostr-double-ratchet/src"
+import type {SessionState} from "nostr-double-ratchet/src"
+import {persist, PersistStorage} from "zustand/middleware"
 import {NDKEventFromRawEvent} from "@/utils/nostr"
+import {Filter, VerifiedEvent} from "nostr-tools"
 import {hexToBytes} from "@noble/hashes/utils"
-import {persist} from "zustand/middleware"
-import {VerifiedEvent} from "nostr-tools"
 import {ndk} from "@/utils/ndk"
 import {create} from "zustand"
 
+const subscribe = (filter: Filter, onEvent: (event: VerifiedEvent) => void) => {
+  const sub = ndk().subscribe(filter)
+  sub.on("event", (event) => {
+    onEvent(event as unknown as VerifiedEvent)
+  })
+  return () => sub.stop()
+}
 interface SessionsState {
   sessions: Record<string, Session>
   messages: Record<string, Rumor[]>
@@ -64,6 +72,71 @@ const inviteToSession = async (
   }
 }
 
+type SessionStateStorage = {
+  sessions: {
+    id: string
+    state: SessionState
+  }[]
+  messages: {
+    id: string
+    messages: Rumor[]
+  }[]
+}
+
+const storage: PersistStorage<SessionsState> = {
+  getItem: (name) => {
+    const value = localStorage.getItem(name)
+    if (!value) {
+      return {
+        state: {
+          sessions: {},
+          messages: {},
+        },
+      }
+    }
+    const jsonObject: SessionStateStorage = JSON.parse(value)
+
+    const sessions = jsonObject.sessions.map((session) => {
+      return [session.id, new Session(subscribe, session.state)]
+    })
+
+    const messages = jsonObject.messages.map((message) => {
+      return [message.id, message.messages]
+    })
+
+    return {
+      state: {
+        sessions: Object.fromEntries(sessions),
+        messages: Object.fromEntries(messages),
+      },
+    }
+  },
+  setItem: (name, value) => {
+    const sessionStates = Object.entries(value.state.sessions).map(
+      ([sessionId, session]) => {
+        return {
+          id: sessionId,
+          state: session.state,
+        }
+      }
+    )
+    const messages = Object.entries(value.state.messages).map(([sessionId, messages]) => {
+      return {
+        id: sessionId,
+        messages,
+      }
+    })
+    const storageObject: SessionStateStorage = {
+      sessions: sessionStates,
+      messages,
+    }
+    localStorage.setItem(name, JSON.stringify(storageObject))
+  },
+  removeItem: (name) => {
+    localStorage.removeItem(name)
+  },
+}
+
 export const useSessionsStore = create<SessionsStore>()(
   persist(
     (set, get) => ({
@@ -90,27 +163,7 @@ export const useSessionsStore = create<SessionsStore>()(
     }),
     {
       name: "sessions",
-      version: 1,
-      migrate: (persistedState: any) => {
-        if (persistedState) {
-          return {
-            ...persistedState,
-            messages: persistedState.messages || {},
-          }
-        }
-        return {sessions: {}, messages: {}}
-      },
+      storage,
     }
   )
 )
-
-// Set up automatic subscription for all sessions
-const subscribedSessions = new Set<string>()
-useSessionsStore.subscribe((state) => {
-  Object.entries(state.sessions).forEach(([sessionId, session]) => {
-    if (!subscribedSessions.has(sessionId)) {
-      subscribedSessions.add(sessionId)
-      useSessionsStore.getState().subscribeToSession(sessionId, session)
-    }
-  })
-})

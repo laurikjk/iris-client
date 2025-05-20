@@ -76,6 +76,7 @@ const MessageForm = ({
     }
 
     try {
+      console.log("sending message", session)
       const {event, innerEvent} = session.sendEvent({
         content: text,
         kind: CHAT_MESSAGE_KIND,
