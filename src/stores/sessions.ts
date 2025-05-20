@@ -1,5 +1,5 @@
 // import {irisStorage} from "@/utils/irisdbZustandStorage"
-import {Invite, Session} from "nostr-double-ratchet/src"
+import {Invite, Session, Rumor} from "nostr-double-ratchet/src"
 import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {hexToBytes} from "@noble/hashes/utils"
 import {persist} from "zustand/middleware"
@@ -9,6 +9,7 @@ import {create} from "zustand"
 
 interface SessionsState {
   sessions: Record<string, Session>
+  messages: Record<string, Rumor[]>
 }
 
 interface SessionsActions {
@@ -17,6 +18,7 @@ interface SessionsActions {
     pubKey: string,
     privKey?: string
   ) => Promise<{sessionId: string; session: Session}>
+  subscribeToSession: (sessionId: string, session: Session) => void
 }
 
 type SessionsStore = SessionsState & SessionsActions
@@ -66,12 +68,24 @@ export const useSessionsStore = create<SessionsStore>()(
   persist(
     (set, get) => ({
       sessions: {},
+      messages: {},
       acceptInvite: async (url: string, pubKey: string, privKey?: string) => {
         const {sessionId, session} = await inviteToSession(url, pubKey, privKey)
         set((state) => ({
           sessions: {...state.sessions, [sessionId]: session},
         }))
+        get().subscribeToSession(sessionId, session)
         return {sessionId, session}
+      },
+      subscribeToSession: (sessionId: string, session: Session) => {
+        session.onEvent((event: Rumor) => {
+          set((state) => ({
+            messages: {
+              ...state.messages,
+              [sessionId]: [...(state.messages[sessionId] || []), event],
+            },
+          }))
+        })
       },
     }),
     {
@@ -79,10 +93,24 @@ export const useSessionsStore = create<SessionsStore>()(
       version: 1,
       migrate: (persistedState: any) => {
         if (persistedState) {
-          return persistedState
+          return {
+            ...persistedState,
+            messages: persistedState.messages || {},
+          }
         }
-        //localState.get("sessions").on((sessions) => {})
+        return {sessions: {}, messages: {}}
       },
     }
   )
 )
+
+// Set up automatic subscription for all sessions
+const subscribedSessions = new Set<string>()
+useSessionsStore.subscribe((state) => {
+  Object.entries(state.sessions).forEach(([sessionId, session]) => {
+    if (!subscribedSessions.has(sessionId)) {
+      subscribedSessions.add(sessionId)
+      useSessionsStore.getState().subscribeToSession(sessionId, session)
+    }
+  })
+})
