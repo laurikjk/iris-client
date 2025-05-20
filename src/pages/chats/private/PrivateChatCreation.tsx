@@ -11,11 +11,13 @@ import {useUserStore} from "@/stores/user"
 import {useNavigate} from "react-router"
 import {localState} from "irisdb/src"
 import {ndk} from "@/utils/ndk"
+import {RiInformationLine} from "@remixicon/react"
 
 const PrivateChatCreation = () => {
   const navigate = useNavigate()
   const [invites, setInvites] = useState<Map<string, Invite>>(new Map())
   const [inviteInput, setInviteInput] = useState("")
+  const [showPublicInfo, setShowPublicInfo] = useState(false)
   const labelInputRef = useRef<HTMLInputElement>(null)
 
   const myPubKey = useUserStore((state) => state.publicKey)
@@ -172,6 +174,13 @@ const PrivateChatCreation = () => {
     )
   }
 
+
+  const inviteList: [string, Invite][] = Array.from(invites).sort(([idA], [idB]) => {
+    if (idA === "public") return -1
+    if (idB === "public") return 1
+    return 0
+  })
+
   return (
     <>
       <div className="m-4 p-4 md:p-8 rounded-lg bg-base-100 flex flex-col gap-6">
@@ -214,12 +223,32 @@ const PrivateChatCreation = () => {
             </button>
           </form>
           <div className="space-y-3">
-            {Array.from(invites).map(([id, link]) => (
+            {inviteList.map(([id, link]) => (
               <div
                 key={id}
-                className="flex flex-col md:flex-row md:items-center justify-between gap-2"
+                className={`flex flex-col md:flex-row md:items-center justify-between gap-2 px-4 ${
+                  id === "public" ? "bg-base-200 py-4 rounded-lg" : ""
+                }`}
               >
-                <span>{id === "private" ? "Private Invite" : link.label}</span>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span>{id === "private" ? "Private Invite" : link.label}</span>
+                    {id === "public" && (
+                      <button
+                        onClick={() => setShowPublicInfo(!showPublicInfo)}
+                        className="btn btn-ghost btn-sm md:btn-xs"
+                      >
+                        <RiInformationLine className="w-5 h-5 md:w-4 md:h-4" />
+                      </button>
+                    )}
+                  </div>
+                  {id === "public" && showPublicInfo && (
+                    <span className="text-sm text-base-content/70 pr-2">
+                      This invite is shown on your profile and lets others start a chat with you.
+                      Messages and sender identities are end-to-end encrypted. However, it's still possible to see that a chat has been initiated with you.
+                    </span>
+                  )}
+                </div>
                 <div className="flex gap-4 items-center">
                   <QRCodeButton
                     npub={myPubKey && nip19.npubEncode(myPubKey)}
