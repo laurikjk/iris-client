@@ -2,6 +2,7 @@ import {useState, useRef, useEffect, ChangeEvent, FormEvent} from "react"
 import {Invite, serializeSessionState} from "nostr-double-ratchet/src"
 import QRCodeButton from "@/shared/components/user/QRCodeButton"
 import {acceptInvite} from "@/shared/hooks/useInviteFromUrl"
+import {useSessionsStore} from "@/stores/sessions"
 import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {getSessions} from "@/utils/chat/Sessions"
 import {nip19, VerifiedEvent} from "nostr-tools"
@@ -17,7 +18,7 @@ const PrivateChatCreation = () => {
   const [invites, setInvites] = useState<Map<string, Invite>>(new Map())
   const [inviteInput, setInviteInput] = useState("")
   const labelInputRef = useRef<HTMLInputElement>(null)
-
+  const {acceptInvite: acceptInviteFromUrl} = useSessionsStore()
   const myPubKey = useUserStore((state) => state.publicKey)
   const myPrivKey = useUserStore((state) => state.privateKey)
 
@@ -115,6 +116,11 @@ const PrivateChatCreation = () => {
 
         const savedSessions = getSessions()
         console.log("Current sessions:", Array.from(savedSessions.keys()))
+
+        acceptInviteFromUrl(input, myPrivKey, myPubKey)
+
+        const sessions = useSessionsStore.getState().sessions
+        console.log("Sessions:", sessions)
 
         // Navigate to the new chat
         console.log("Navigating to chat with session ID:", sessionId)
