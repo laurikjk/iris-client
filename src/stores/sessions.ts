@@ -53,16 +53,11 @@ const inviteToSession = async (
         }
         throw new Error("No nostr extension or private key")
       }
-  const {session, event} = await invite.accept(
-    (filter, onEvent) => {
-      const sub = ndk().subscribe(filter)
-      sub.on("event", (e) => onEvent(e as unknown as VerifiedEvent))
-      return () => sub.stop()
-    },
-    pubKey,
-    encrypt
-  )
+  console.log("accept", pubKey, encrypt)
+  const {session, event} = await invite.accept(subscribe, pubKey, encrypt)
+  console.log("accept", event)
   const e = NDKEventFromRawEvent(event)
+  console.log("publish", e)
   await e
     .publish()
     .then((res) => console.log("published", res))
@@ -117,6 +112,7 @@ const storage: PersistStorage<SessionsState> = {
     }
   },
   setItem: (name, value) => {
+    console.log("setItem", name, value)
     const sessionStates = Object.entries(value.state.sessions).map(
       ([sessionId, session]) => {
         return {
@@ -135,6 +131,7 @@ const storage: PersistStorage<SessionsState> = {
       sessions: sessionStates,
       messages: messages,
     }
+    console.log("storageObject", storageObject)
     localStorage.setItem(name, JSON.stringify(storageObject))
   },
   removeItem: (name) => {
@@ -162,6 +159,7 @@ export const useSessionsStore = create<SessionsStore>()(
       onRehydrateStorage: () => {
         return (state) => {
           // TODO: subscribe to nostr
+          console.log("onRehydrateStorage", state)
         }
       },
     }

@@ -4,6 +4,7 @@ import {NDKEventFromRawEvent, RawEvent} from "@/utils/nostr"
 import {localState, Unsubscribe} from "irisdb/src"
 import {Filter, VerifiedEvent} from "nostr-tools"
 import {hexToBytes} from "@noble/hashes/utils"
+import {useUserStore} from "@/stores/user"
 import debounce from "lodash/debounce"
 import {ndk} from "@/utils/ndk"
 
@@ -51,8 +52,8 @@ const listen = debounce(() => {
   for (const id of invites.keys()) {
     if (!subscriptions.has(id)) {
       const invite = invites.get(id)!
-      const decrypt = privateKey
-        ? hexToBytes(privateKey)
+      const decrypt = useUserStore.getState().privateKey
+        ? hexToBytes(useUserStore.getState().privateKey)
         : async (cipherText: string, pubkey: string) => {
             if (window.nostr?.nip44) {
               try {
