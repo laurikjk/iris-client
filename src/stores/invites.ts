@@ -1,5 +1,6 @@
 // import {irisStorage} from "@/utils/irisdbZustandStorage"
 import {Invite, serializeSessionState, Session} from "nostr-double-ratchet/src"
+import {getSessions, handleNewSessionEvent} from "@/utils/chat/Sessions"
 import {subscribeToDMNotifications} from "@/utils/notifications"
 import {persist, PersistStorage} from "zustand/middleware"
 import {Filter, VerifiedEvent} from "nostr-tools"
@@ -78,13 +79,30 @@ const decryptFromWindow = (cipherText: string, pubkey: string) => {
 
 const listenToSession = async (session: Session, identity?: string) => {
   const sessionId = `${identity}:${session.name}`
+
   const existing = await localState.get("sessions").get(sessionId).once(undefined, true)
-  if (existing) return
+  if (existing) {
+    return
+  }
+
   localState
     .get("sessions")
     .get(sessionId)
     .get("state")
     .put(serializeSessionState(session.state))
+
+  session.onEvent(async (event) => {
+    await handleNewSessionEvent(sessionId, session, event)
+    localState
+      .get("sessions")
+      .get(sessionId)
+      .get("events")
+      .put(serializeSessionState(session.state))
+  })
+
+  const sessions = getSessions()
+  sessions.set(sessionId, session)
+
   subscribeToDMNotifications()
 }
 
