@@ -6,7 +6,6 @@ import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {getSessions} from "@/utils/chat/Sessions"
 import {useInvitesStore} from "@/stores/invites"
 import {nip19, VerifiedEvent} from "nostr-tools"
-import {getInvites} from "@/utils/chat/Invites"
 import {hexToBytes} from "@noble/hashes/utils"
 import {useUserStore} from "@/stores/user"
 import {useNavigate} from "react-router"
@@ -15,7 +14,6 @@ import {ndk} from "@/utils/ndk"
 
 const PrivateChatCreation = () => {
   const navigate = useNavigate()
-  const [invites, setInvites] = useState<Map<string, Invite>>(new Map())
   const [inviteInput, setInviteInput] = useState("")
   const labelInputRef = useRef<HTMLInputElement>(null)
 
@@ -24,23 +22,14 @@ const PrivateChatCreation = () => {
   const myPrivKey = useUserStore((state) => state.privateKey)
 
   useEffect(() => {
-    if (getSessions().size === 0) {
+    if (Object.keys(privateInvites).length === 0 && !publicInvite) {
       navigate("/chats/new", {replace: true})
     }
 
     const createPrivateInviteIfNeeded = async () => {
       try {
-        const existingInvites = getInvites()
-        if (!existingInvites.has("private") && myPubKey) {
-          console.log("Creating private invite for test")
-          const privateInvite = Invite.createNew(myPubKey, "Private Invite")
-          localState.get("invites").get("private").put(privateInvite.serialize())
-
-          const updatedInvites = new Map(existingInvites)
-          updatedInvites.set("private", privateInvite)
-          setInvites(updatedInvites)
-        } else {
-          setInvites(existingInvites)
+        if (!privateInvites && myPubKey) {
+          createInvite("Private Invite")
         }
       } catch (error) {
         console.error("Error creating private invite:", error)
@@ -48,10 +37,6 @@ const PrivateChatCreation = () => {
     }
 
     createPrivateInviteIfNeeded()
-
-    return localState.get("invites").on(() => {
-      setInvites(getInvites())
-    })
   }, [navigate, myPubKey])
 
   const handleInviteInput = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -157,6 +142,10 @@ const PrivateChatCreation = () => {
     )
   }
 
+  const inviteList = publicInvite
+    ? [{id: "public", invite: publicInvite}]
+    : Object.entries(privateInvites).map(([id, invite]) => ({id, invite}))
+
   return (
     <>
       <div className="m-4 p-4 md:p-8 rounded-lg bg-base-100 flex flex-col gap-6">
@@ -199,20 +188,20 @@ const PrivateChatCreation = () => {
             </button>
           </form>
           <div className="space-y-3">
-            {Array.from(invites).map(([id, link]) => (
+            {inviteList.map(({id, invite}) => (
               <div
                 key={id}
                 className="flex flex-col md:flex-row md:items-center justify-between gap-2"
               >
-                <span>{id === "private" ? "Private Invite" : link.label}</span>
+                <span>{invite.label || "Untitled Invite"}</span>
                 <div className="flex gap-4 items-center">
                   <QRCodeButton
                     npub={myPubKey && nip19.npubEncode(myPubKey)}
-                    data={link.getUrl()}
+                    data={invite.getUrl()}
                     onScanSuccess={onScanSuccess}
                   />
                   <button
-                    onClick={() => navigator.clipboard.writeText(link.getUrl())}
+                    onClick={() => navigator.clipboard.writeText(invite.getUrl())}
                     className="btn btn-sm btn-outline"
                   >
                     Copy
