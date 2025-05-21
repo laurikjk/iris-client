@@ -196,8 +196,6 @@ const ChatList = ({className}: ChatListProps) => {
     return bLatest - aLatest
   })
 
-  console.log("allChats", allChats)
-
   return (
     <PublicChatContext.Provider value={{setPublicChatTimestamps}}>
       <nav className={className}>
