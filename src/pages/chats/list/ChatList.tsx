@@ -2,9 +2,9 @@ import {CHANNEL_CREATE, CHANNEL_MESSAGE} from "../utils/constants"
 import {PublicChatContext} from "../public/PublicChatContext"
 import Header from "@/shared/components/header/Header"
 import {useSessionsStore} from "@/stores/sessions"
+import {useUserStore} from "@/stores/user"
 import ChatListItem from "./ChatListItem"
 import {useState, useEffect} from "react"
-import {localState} from "irisdb/src"
 import {NavLink} from "react-router"
 import classNames from "classnames"
 import {ndk} from "@/utils/ndk"
@@ -31,9 +31,9 @@ const ChatList = ({className}: ChatListProps) => {
 
   useEffect(() => {
     // TODO: get from zustand store
-    const unsubPubKey = localState.get("user/publicKey").on((key) => {
-      if (key && typeof key === "string") {
-        setUserPublicKey(key)
+    const unsubPubKey = useUserStore.subscribe((state) => {
+      if (state.publicKey && typeof state.publicKey === "string") {
+        setUserPublicKey(state.publicKey)
       }
     })
 

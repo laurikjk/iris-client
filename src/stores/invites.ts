@@ -1,12 +1,11 @@
 // import {irisStorage} from "@/utils/irisdbZustandStorage"
-import {Invite, serializeSessionState, Session} from "nostr-double-ratchet/src"
-import {getSessions, handleNewSessionEvent} from "@/utils/chat/Sessions"
 import {subscribeToDMNotifications} from "@/utils/notifications"
 import {persist, PersistStorage} from "zustand/middleware"
+import {Invite, Session} from "nostr-double-ratchet/src"
 import {Filter, VerifiedEvent} from "nostr-tools"
 import {hexToBytes} from "@noble/hashes/utils"
+import {useSessionsStore} from "./sessions"
 import {useUserStore} from "./user"
-import {localState} from "irisdb"
 import {ndk} from "@/utils/ndk"
 import {create} from "zustand"
 
@@ -79,18 +78,19 @@ const decryptFromWindow = (cipherText: string, pubkey: string) => {
 
 const listenToSession = async (session: Session, identity?: string) => {
   const sessionId = `${identity}:${session.name}`
+  useSessionsStore.getState().addSession(sessionId, session)
 
-  const existing = await localState.get("sessions").get(sessionId).once(undefined, true)
-  if (existing) {
-    return
-  }
+  // const existing = await localState.get("sessions").get(sessionId).once(undefined, true)
+  // if (existing) {
+  //   return
+  // }
 
-  localState
-    .get("sessions")
-    .get(sessionId)
-    .get("state")
-    .put(serializeSessionState(session.state))
-
+  //  localState
+  //    .get("sessions")
+  //    .get(sessionId)
+  //    .get("state")
+  //    .put(serializeSessionState(session.state))
+  //
   // TODO: this workaround works until inviter sends a message - then invitee won't receive it until they refresh
   // session.onEvent(async (event) => {
   //   await handleNewSessionEvent(sessionId, session, event)

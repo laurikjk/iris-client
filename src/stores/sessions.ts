@@ -31,6 +31,7 @@ interface SessionsActions {
     pubKey: string,
     privKey?: string
   ) => Promise<{sessionId: string; session: Session}>
+  addSession: (sessionId: string, session: Session) => void
 }
 
 type SessionsStore = SessionsState & SessionsActions
@@ -112,7 +113,6 @@ const storage: PersistStorage<SessionsState> = {
     }
   },
   setItem: (name, value) => {
-    console.log("setItem", name, value)
     const sessionStates = Object.entries(value.state.sessions).map(
       ([sessionId, session]) => {
         return {
@@ -141,16 +141,25 @@ const storage: PersistStorage<SessionsState> = {
 
 export const useSessionsStore = create<SessionsStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       sessions: {},
       messages: {},
-      acceptInvite: async (url: string, pubKey: string, privKey?: string) => {
-        const {sessionId, session} = await inviteToSession(url, pubKey, privKey)
-        // TODO: subscribe to nostr
+      acceptInvite: async (url: string, pubkey: string, privkey?: string) => {
+        const {sessionId, session} = await inviteToSession(url, pubkey, privkey)
+        get().addSession(sessionId, session)
+        return {sessionId, session}
+      },
+      addSession: (sessionId: string, session: Session) => {
+        session.onEvent(async (event) => {
+          set((state) => ({
+            sessions: {...state.sessions, [sessionId]: session},
+            messages: {...state.messages, [sessionId]: [event]},
+          }))
+        })
         set((state) => ({
+          ...state,
           sessions: {...state.sessions, [sessionId]: session},
         }))
-        return {sessionId, session}
       },
     }),
     {
