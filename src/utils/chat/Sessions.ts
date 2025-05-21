@@ -87,7 +87,7 @@ export function loadSessions() {
   })
 }
 
-async function handleNewSessionEvent(id: string, session: Session, event: Rumor) {
+export async function handleNewSessionEvent(id: string, session: Session, event: Rumor) {
   // TODO: if we have multiple browser tabs open, sessions go out of sync
   // as they generate different new ratchet keys
   saveSessionState(id, session)
