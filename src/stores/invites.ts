@@ -127,6 +127,7 @@ export const useInvitesStore = create<InvitesStore>()(
           if (!state) return
 
           const keyOrDecrpt = getKeyOrDecrpt()
+          console.log("keyOrDecrpt", keyOrDecrpt)
           if (!keyOrDecrpt) return
 
           Object.values(state.privateInvites).forEach((invite) => {

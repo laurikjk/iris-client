@@ -2,9 +2,9 @@ import {INVITE_RESPONSE_KIND, MESSAGE_EVENT_KIND} from "nostr-double-ratchet/src
 import {NDKTag, NDKEvent, NDKUser} from "@nostr-dev-kit/ndk"
 import {getZapAmount, getZappingUser} from "./nostr"
 import {useSettingsStore} from "@/stores/settings"
+import {useInvitesStore} from "@/stores/invites"
 import {getSessions} from "@/utils/chat/Sessions"
 import {SortedMap} from "./SortedMap/SortedMap"
-import {getInvites} from "@/utils/chat/Invites"
 import socialGraph from "@/utils/socialGraph"
 import {profileCache} from "@/utils/memcache"
 import debounce from "lodash/debounce"
@@ -171,7 +171,13 @@ export const subscribeToDMNotifications = debounce(async () => {
     return
   }
 
-  const inviteRecipients = Array.from(getInvites().values())
+  const {publicInvite, privateInvites} = useInvitesStore.getState()
+
+  const allInvites = publicInvite
+    ? [publicInvite, ...Object.values(privateInvites)]
+    : Object.values(privateInvites)
+
+  const inviteRecipients = allInvites
     .map((i) => i.inviterEphemeralPublicKey)
     .filter((a) => typeof a === "string") as string[]
 
