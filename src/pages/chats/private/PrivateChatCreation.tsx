@@ -18,26 +18,9 @@ const PrivateChatCreation = () => {
   const labelInputRef = useRef<HTMLInputElement>(null)
 
   const {privateInvites, publicInvite, createInvite, deleteInvite} = useInvitesStore()
+
   const myPubKey = useUserStore((state) => state.publicKey)
   const myPrivKey = useUserStore((state) => state.privateKey)
-
-  useEffect(() => {
-    if (Object.keys(privateInvites).length === 0 && !publicInvite) {
-      navigate("/chats/new", {replace: true})
-    }
-
-    const createPrivateInviteIfNeeded = async () => {
-      try {
-        if (!privateInvites && myPubKey) {
-          createInvite("Private Invite")
-        }
-      } catch (error) {
-        console.error("Error creating private invite:", error)
-      }
-    }
-
-    createPrivateInviteIfNeeded()
-  }, [navigate, myPubKey])
 
   const handleInviteInput = async (e: ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value

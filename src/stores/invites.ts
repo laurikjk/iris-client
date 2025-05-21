@@ -23,6 +23,7 @@ interface InvitesState {
 }
 
 interface InvitesActions {
+  createPublicInvite: () => void
   createInvite: (label: string) => void
   deleteInvite: (id: string) => void
 }
@@ -97,6 +98,12 @@ export const useInvitesStore = create<InvitesStore>()(
     (set) => ({
       privateInvites: {},
       publicInvite: null,
+      createPublicInvite: () => {
+        const myPubKey = useUserStore.getState().publicKey
+        if (!myPubKey) return
+        const invite = Invite.createNew(myPubKey, "Public Invite")
+        set(() => ({publicInvite: invite}))
+      },
       createInvite: (label: string) => {
         const myPubKey = useUserStore.getState().publicKey
         if (!myPubKey) return
