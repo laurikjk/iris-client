@@ -4,6 +4,7 @@ import QRCodeButton from "@/shared/components/user/QRCodeButton"
 import {acceptInvite} from "@/shared/hooks/useInviteFromUrl"
 import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {getSessions} from "@/utils/chat/Sessions"
+import {useInvitesStore} from "@/stores/invites"
 import {nip19, VerifiedEvent} from "nostr-tools"
 import {getInvites} from "@/utils/chat/Invites"
 import {hexToBytes} from "@noble/hashes/utils"
@@ -18,6 +19,7 @@ const PrivateChatCreation = () => {
   const [inviteInput, setInviteInput] = useState("")
   const labelInputRef = useRef<HTMLInputElement>(null)
 
+  const {privateInvites, publicInvite, createInvite, deleteInvite} = useInvitesStore()
   const myPubKey = useUserStore((state) => state.publicKey)
   const myPrivKey = useUserStore((state) => state.privateKey)
 
@@ -127,35 +129,18 @@ const PrivateChatCreation = () => {
     }
   }
 
-  const createInvite = (e: FormEvent<HTMLFormElement>) => {
+  const handleCreateInvite = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-
-    const privateInvite = Invite.createNew(myPubKey, "Private Invite")
-    localState.get("invites/private").put(privateInvite.serialize())
 
     if (labelInputRef.current) {
       const label = labelInputRef.current.value.trim() || "New Invite Link"
-      const newLink = Invite.createNew(myPubKey, label)
-      const id = crypto.randomUUID()
-      localState.get(`invites/${id}`).put(newLink.serialize())
-
-      const updatedInvites = new Map(invites)
-      updatedInvites.set("private", privateInvite)
-      updatedInvites.set(id, newLink)
-      setInvites(updatedInvites)
-
+      createInvite(label)
       labelInputRef.current.value = "" // Clear the input after creating
-    } else {
-      const updatedInvites = new Map(invites)
-      updatedInvites.set("private", privateInvite)
-      setInvites(updatedInvites)
     }
   }
 
-  const deleteInvite = (id: string) => {
-    localState.get(`invites/${id}`).put(null)
-    invites.delete(id)
-    setInvites(new Map(invites))
+  const handleDeleteInvite = (id: string) => {
+    deleteInvite(id)
   }
 
   const onScanSuccess = (data: string) => {
@@ -200,7 +185,7 @@ const PrivateChatCreation = () => {
         <div>
           <h2 className="text-xl font-semibold mb-4">Share your invite link</h2>
           <form
-            onSubmit={createInvite}
+            onSubmit={handleCreateInvite}
             className="flex flex-wrap items-center gap-2 mb-4"
           >
             <input
@@ -233,7 +218,7 @@ const PrivateChatCreation = () => {
                     Copy
                   </button>
                   <button
-                    onClick={() => deleteInvite(id)}
+                    onClick={() => handleDeleteInvite(id)}
                     className="btn btn-sm btn-error"
                   >
                     Delete
