@@ -91,17 +91,15 @@ const listenToSession = async (session: Session, identity?: string) => {
     .get("state")
     .put(serializeSessionState(session.state))
 
-  session.onEvent(async (event) => {
-    await handleNewSessionEvent(sessionId, session, event)
-    localState
-      .get("sessions")
-      .get(sessionId)
-      .get("events")
-      .put(serializeSessionState(session.state))
-  })
-
-  const sessions = getSessions()
-  sessions.set(sessionId, session)
+  // TODO: this workaround works until inviter sends a message - then invitee won't receive it until they refresh
+  // session.onEvent(async (event) => {
+  //   await handleNewSessionEvent(sessionId, session, event)
+  //   localState
+  //     .get("sessions")
+  //     .get(sessionId)
+  //     .get("events")
+  //     .put(serializeSessionState(session.state))
+  // })
 
   subscribeToDMNotifications()
 }
