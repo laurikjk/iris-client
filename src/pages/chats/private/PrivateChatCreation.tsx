@@ -1,15 +1,10 @@
-import {useState, useRef, useEffect, ChangeEvent, FormEvent} from "react"
 import QRCodeButton from "@/shared/components/user/QRCodeButton"
+import {useState, useRef, ChangeEvent, FormEvent} from "react"
 import {useSessionsStore} from "@/stores/sessions"
-import {getSessions} from "@/utils/chat/Sessions"
 import {useInvitesStore} from "@/stores/invites"
-import {nip19, VerifiedEvent} from "nostr-tools"
-import {Invite} from "nostr-double-ratchet/src"
-import {getInvites} from "@/utils/chat/Invites"
-import {hexToBytes} from "@noble/hashes/utils"
 import {useUserStore} from "@/stores/user"
 import {useNavigate} from "react-router"
-import {localState} from "irisdb/src"
+import {nip19} from "nostr-tools"
 
 const PrivateChatCreation = () => {
   const navigate = useNavigate()
