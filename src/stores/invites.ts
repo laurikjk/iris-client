@@ -1,10 +1,8 @@
 import {Invite, serializeSessionState, Session} from "nostr-double-ratchet/src"
 import {subscribeToDMNotifications} from "@/utils/notifications"
 import {persist, PersistStorage} from "zustand/middleware"
-import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {hexToBytes} from "@noble/hashes/utils"
 import {VerifiedEvent} from "nostr-tools"
-import debounce from "lodash/debounce"
 import {useUserStore} from "./user"
 import {Filter} from "nostr-tools"
 import {localState} from "irisdb"
@@ -13,16 +11,30 @@ import {create} from "zustand"
 
 interface InvitesState {
   invites: Map<string, Invite>
+  unsubscribes: Map<string, () => void>
 }
 
 const initialState: InvitesState = {
   invites: new Map(),
+  unsubscribes: new Map(),
 }
-
 interface InvitesActions {
   setInvites: (invites: Map<string, Invite>) => void
 }
 
+const getPrivateKey = () => useUserStore.getState().privateKey
+const getDecryptor = () => hexToBytes(getPrivateKey())
+const getOnSession = () => async (session: Session, identity?: string) => {
+  const sessionId = `${identity}:${session.name}`
+  const existing = await localState.get("sessions").get(sessionId).once(undefined, true)
+  if (existing) return
+  localState
+    .get("sessions")
+    .get(sessionId)
+    .get("state")
+    .put(serializeSessionState(session.state))
+  subscribeToDMNotifications()
+}
 const nostrSubscribe = (filter: Filter, onEvent: (e: VerifiedEvent) => void) => {
   const sub = ndk().subscribe(filter)
   sub.on("event", (event) => {
@@ -34,35 +46,24 @@ const nostrSubscribe = (filter: Filter, onEvent: (e: VerifiedEvent) => void) => 
 const storage: PersistStorage<InvitesState> = {
   getItem: (key: string) => {
     const value = localStorage.getItem(key)
-    console.log("getItem raw value:", value)
     if (!value) return {state: initialState}
     const parsed = JSON.parse(value)
-    console.log("getItem parsed:", parsed)
-
-    const invites = parsed.invites
-      .map(([id, invite]: [string, string]) => {
-        try {
-          console.log(`Deserializing invite ${id}:`, invite)
-          const deserialized = Invite.deserialize(invite)
-          console.log(`Successfully deserialized invite ${id}`)
-          return [id, deserialized]
-        } catch (error) {
-          console.error(`Failed to deserialize invite ${id}:`, error)
-          return null
-        }
-      })
-      .filter(Boolean) // Remove any failed deserializations
-
-    console.log("getItem final invites:", invites)
-    return {state: {invites: new Map(invites)}}
+    const invites = parsed.invites.map(([id, invite]: [string, string]) => [
+      id,
+      Invite.deserialize(invite),
+    ])
+    const unsubscribes = new Map<string, () => void>()
+    for (const [, invite] of invites) {
+      const unsubscribe = invite.listen(getDecryptor(), nostrSubscribe, getOnSession())
+      unsubscribes.set(invite.id, unsubscribe)
+    }
+    return {state: {invites: new Map(invites), unsubscribes}}
   },
   setItem: (key, value) => {
-    console.log("setItem", key, value)
     const invitesSerialized = Array.from(value.state.invites.entries()).map(
       ([id, invite]) => [id, invite.serialize()]
     )
     localStorage.setItem(key, JSON.stringify({invites: invitesSerialized}))
-    console.log("setItem set items", JSON.parse(localStorage.getItem(key) || "{}"))
   },
   removeItem: (key) => {
     localStorage.removeItem(key)
@@ -71,29 +72,27 @@ const storage: PersistStorage<InvitesState> = {
 
 export const useInvitesStore = create<InvitesState & InvitesActions>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...initialState,
       setInvites: (invites: Map<string, Invite>) => {
-        set({invites})
-        const privateKey = useUserStore.getState().privateKey
-        const decryptor = hexToBytes(privateKey)
-        const onSession = async (session: Session, identity?: string) => {
-          const sessionId = `${identity}:${session.name}`
-          const existing = await localState
-            .get("sessions")
-            .get(sessionId)
-            .once(undefined, true)
-          if (existing) return
-          localState
-            .get("sessions")
-            .get(sessionId)
-            .get("state")
-            .put(serializeSessionState(session.state))
-          subscribeToDMNotifications()
+        const currentUnsubscribes = get().unsubscribes
+
+        const newInvites = new Map<string, Invite>()
+        const newUnsubscribes = new Map<string, () => void>()
+
+        for (const [id, invite] of invites) {
+          newInvites.set(id, invite)
+          newUnsubscribes.set(
+            id,
+            invite.listen(getDecryptor(), nostrSubscribe, getOnSession())
+          )
         }
-        for (const invite of invites.values()) {
-          invite.listen(decryptor, nostrSubscribe, onSession)
+
+        for (const [id, unsubscribe] of currentUnsubscribes) {
+          unsubscribe()
         }
+
+        set({invites: newInvites, unsubscribes: newUnsubscribes})
       },
     }),
     {

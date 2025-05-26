@@ -8,8 +8,6 @@ import {subscribeToDMNotifications, subscribeToNotifications} from "./utils/noti
 import {loadSessions} from "@/utils/chat/Sessions"
 import {migrateUserState} from "./utils/migration"
 import {useSettingsStore} from "@/stores/settings"
-import {loadInvites} from "@/utils/chat/Invites"
-import {useInvitesStore} from "./stores/invites"
 import {ndk} from "./utils/ndk"
 import {router} from "@/pages"
 

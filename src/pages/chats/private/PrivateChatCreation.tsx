@@ -14,7 +14,6 @@ import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {getSessions} from "@/utils/chat/Sessions"
 import {useInvitesStore} from "@/stores/invites"
 import {nip19, VerifiedEvent} from "nostr-tools"
-import {getInvites} from "@/utils/chat/Invites"
 import {hexToBytes} from "@noble/hashes/utils"
 import {useUserStore} from "@/stores/user"
 import {useNavigate} from "react-router"
@@ -23,14 +22,13 @@ import {ndk} from "@/utils/ndk"
 
 const PrivateChatCreation = () => {
   const navigate = useNavigate()
-  //const [invites, setInvites] = useState<Map<string, Invite>>(new Map())
+  const {invites, setInvites} = useInvitesStore()
   const [inviteInput, setInviteInput] = useState("")
   const [showPublicInfo, setShowPublicInfo] = useState(false)
   const [searchInput, setSearchInput] = useState("")
   const [searchResults, setSearchResults] = useState<DoubleRatchetUser[]>([])
   const [doubleRatchetCount, setDoubleRatchetCount] = useState(0)
   const labelInputRef = useRef<HTMLInputElement>(null)
-  const {invites, setInvites, addInvite, removeInvite} = useInvitesStore()
 
   const myPubKey = useUserStore((state) => state.publicKey)
   const myPrivKey = useUserStore((state) => state.privateKey)
