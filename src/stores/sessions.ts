@@ -16,34 +16,46 @@ import {useUserStore} from "./user"
 import {ndk} from "@/utils/ndk"
 import {create} from "zustand"
 
-interface SessionStore {
+interface SessionStoreState {
   sessions: Map<string, Session>
   events: Map<string, Map<string, MessageType>>
+}
+
+interface SessionStoreActions {
   acceptInvite: (url: string) => Promise<void>
   sendMessage: (id: string, content: string, replyingToId?: string) => Promise<void>
 }
 
-const storage: PersistStorage<SessionStore> = {
-  getItem: (name: string): StorageValue<SessionStore> | null => {
+type SessionStore = SessionStoreState & SessionStoreActions
+const subscribe = (filter: Filter, onEvent: (event: VerifiedEvent) => void) => {
+  const sub = ndk().subscribe(filter)
+  sub.on("event", (e) => onEvent(e as unknown as VerifiedEvent))
+  return () => sub.stop()
+}
+
+const storage: PersistStorage<SessionStoreState> = {
+  getItem: (name: string): StorageValue<SessionStoreState> | null => {
     const value = localStorage.getItem(name)
+    console.log("VALUE IN STORAGE", value)
     if (!value) return null
-    const parsed = JSON.parse(value) as {sessions: [string, any][]}
+    const parsed = JSON.parse(value)
+    console.log("PARSED", parsed)
     const sessions = new Map<string, Session>(
-      parsed.sessions.map(([id, serializedState]) => [
+      parsed.sessions.map(([id, serializedState]: [string, any]) => [
         id,
         new Session(subscribe, deserializeSessionState(serializedState)),
       ])
     )
+    console.log("SESSIONS", sessions)
     return {
       state: {
         sessions,
         events: new Map(),
-        acceptInvite: async () => {},
-        sendMessage: async () => {},
       },
     }
   },
-  setItem: (name: string, value: StorageValue<SessionStore>): void => {
+  setItem: (name: string, value: StorageValue<SessionStoreState>): void => {
+    console.log("setting item in storage", value)
     const serializedSessions = Array.from(value.state.sessions.entries()).map(
       ([id, session]) => [id, serializeSessionState(session.state)]
     )
@@ -125,21 +137,20 @@ const store = create<SessionStore>()(
         const newSessions = new Map(get().sessions)
         newSessions.set(sessionId, session)
         set({sessions: newSessions})
-        console.log("sessions after acceptInvite", get().sessions)
       },
     }),
     {
       name: "sessions",
+      onRehydrateStorage: (state) => {
+        console.log("onRehydrateStorage1", state)
+        return (state) => {
+          console.log("onRehydrateStorage2", state)
+        }
+      },
       storage: storage,
     }
   )
 )
-
-const subscribe = (filter: Filter, onEvent: (event: VerifiedEvent) => void) => {
-  const sub = ndk().subscribe(filter)
-  sub.on("event", (e) => onEvent(e as unknown as VerifiedEvent))
-  return () => sub.stop()
-}
 
 useInvitesStore.subscribe((state) => {
   const privateKey = useUserStore.getState().privateKey
@@ -148,7 +159,6 @@ useInvitesStore.subscribe((state) => {
     return
   }
   state.invites.forEach((invite) => {
-    console.log("setting listener for invite", invite)
     const decrypt = privateKey
       ? hexToBytes(privateKey)
       : async (cipherText: string, pubkey: string) => {
