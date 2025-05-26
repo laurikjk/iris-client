@@ -142,6 +142,13 @@ const store = create<SessionStore>()(
         const sessionId = `${invite.inviter}:${session.name}`
         const newSessions = new Map(get().sessions)
         newSessions.set(sessionId, session)
+        session.onEvent((event) => {
+          const newEvents = new Map(get().events)
+          const newMessages = new Map(newEvents.get(sessionId) || new Map())
+          newMessages.set(event.id, event)
+          newEvents.set(sessionId, newMessages)
+          set({events: newEvents})
+        })
         set({sessions: newSessions})
       },
     }),
@@ -150,7 +157,15 @@ const store = create<SessionStore>()(
       onRehydrateStorage: (state) => {
         console.log("onRehydrateStorage1", state)
         return (state) => {
-          console.log("onRehydrateStorage2", state)
+          Array.from(state?.sessions || []).forEach(([sessionId, session]) => {
+            session.onEvent((event) => {
+              const newEvents = new Map(store.getState().events)
+              const newMessages = new Map(newEvents.get(sessionId) || new Map())
+              newMessages.set(event.id, event)
+              newEvents.set(sessionId, newMessages)
+              store.setState({events: newEvents})
+            })
+          })
         }
       },
       storage: storage,
