@@ -6,53 +6,39 @@ import {useSessionsStore} from "@/stores/sessions"
 import MessageForm from "../message/MessageForm"
 import {MessageType} from "../message/Message"
 import {useEffect, useState} from "react"
-import {localState} from "irisdb/src"
 
 const Chat = ({id}: {id: string}) => {
   const [messages, setMessages] = useState(
     new SortedMap<string, MessageType>([], comparator)
   )
-  const {sessions} = useSessionsStore()
+  const {sessions, events} = useSessionsStore()
   const [haveReply, setHaveReply] = useState(false)
   const [haveSent, setHaveSent] = useState(false)
   const [replyingTo, setReplyingTo] = useState<MessageType | undefined>(undefined)
-  console.log("sessions in chat", sessions)
   const session = sessions.get(id)!
 
   useEffect(() => {
     if (!(id && session)) {
       return
     }
-    //  setMessages(new SortedMap<string, MessageType>([], comparator))
-    //  const unsub1 = localState
-    //    .get("sessions")
-    //    .get(id)
-    //    .get("events")
-    //    .forEach((event, path) => {
-    //      const split = path.split("/")
-    //      const id = split[split.length - 1]
-    //      if (event && typeof event === "object" && event !== null) {
-    //        if (!haveReply && (event as MessageType).sender !== "user") {
-    //          setHaveReply(true)
-    //        }
-    //        if (!haveSent && (event as MessageType).sender === "user") {
-    //          setHaveSent(true)
-    //        }
-    //        setMessages((prev) => {
-    //          if (prev.has(id)) {
-    //            return prev
-    //          }
-    //          const newMessages = new SortedMap(prev, comparator)
-    //          newMessages.set(id as string, event as MessageType)
-    //          return newMessages
-    //        })
-    //      }
-    //    }, 2)
 
-    //  return () => {
-    //    unsub1()
-    //  }
-  }, [session])
+    const sessionEvents = events.get(id)
+    if (!sessionEvents) return
+
+    const newMessages = new SortedMap<string, MessageType>([], comparator)
+
+    sessionEvents.forEach((message, messageId) => {
+      if (!haveReply && message.sender !== "user") {
+        setHaveReply(true)
+      }
+      if (!haveSent && message.sender === "user") {
+        setHaveSent(true)
+      }
+      newMessages.set(messageId, message)
+    })
+
+    setMessages(newMessages)
+  }, [id, session, events])
 
   useEffect(() => {
     if (!id) return
