@@ -45,10 +45,16 @@ const storage: PersistStorage<SessionStoreState> = {
         new Session(subscribe, deserializeSessionState(serializedState)),
       ])
     )
+    const events = new Map<string, Map<string, MessageType>>(
+      parsed.events?.map(([sessionId, messages]: [string, [string, MessageType][]]) => [
+        sessionId,
+        new Map(messages),
+      ]) || []
+    )
     return {
       state: {
         sessions,
-        events: new Map(),
+        events,
       },
     }
   },
@@ -56,10 +62,14 @@ const storage: PersistStorage<SessionStoreState> = {
     const serializedSessions = Array.from(value.state.sessions.entries()).map(
       ([id, session]) => [id, serializeSessionState(session.state)]
     )
+    const serializedEvents = Array.from(value.state.events.entries()).map(
+      ([sessionId, messages]) => [sessionId, Array.from(messages.entries())]
+    )
     localStorage.setItem(
       name,
       JSON.stringify({
         sessions: serializedSessions,
+        events: serializedEvents,
       })
     )
   },
