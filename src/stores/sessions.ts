@@ -187,6 +187,13 @@ useInvitesStore.subscribe((state) => {
       const sessionId = `${identity}:${session.name}`
       const newSessions = new Map(store.getState().sessions)
       newSessions.set(sessionId, session)
+      session.onEvent((event) => {
+        const newEvents = new Map(store.getState().events)
+        const newMessages = new Map(newEvents.get(sessionId) || new Map())
+        newMessages.set(event.id, event)
+        newEvents.set(sessionId, newMessages)
+        store.setState({events: newEvents})
+      })
       store.setState({sessions: newSessions})
     })
   })
