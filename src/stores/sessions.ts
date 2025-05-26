@@ -18,6 +18,7 @@ import {create} from "zustand"
 
 interface SessionStoreState {
   sessions: Map<string, Session>
+  // sessionId -> messageId -> message
   events: Map<string, Map<string, MessageType>>
 }
 
@@ -52,7 +53,6 @@ const storage: PersistStorage<SessionStoreState> = {
     }
   },
   setItem: (name: string, value: StorageValue<SessionStoreState>): void => {
-    console.log("setting item in storage", value)
     const serializedSessions = Array.from(value.state.sessions.entries()).map(
       ([id, session]) => [id, serializeSessionState(session.state)]
     )
@@ -60,7 +60,6 @@ const storage: PersistStorage<SessionStoreState> = {
       name,
       JSON.stringify({
         sessions: serializedSessions,
-        events: [],
       })
     )
   },
