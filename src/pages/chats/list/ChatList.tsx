@@ -1,9 +1,10 @@
 import {CHANNEL_CREATE, CHANNEL_MESSAGE} from "../utils/constants"
 import {PublicChatContext} from "../public/PublicChatContext"
 import Header from "@/shared/components/header/Header"
+import {useSessionsStore} from "@/stores/sessions"
+import {useUserStore} from "@/stores/user"
 import ChatListItem from "./ChatListItem"
 import {useState, useEffect} from "react"
-import {localState} from "irisdb/src"
 import {NavLink} from "react-router"
 import classNames from "classnames"
 import {ndk} from "@/utils/ndk"
@@ -36,48 +37,25 @@ type PublicChat = {
 }
 
 const ChatList = ({className}: ChatListProps) => {
-  const [sessions, setSessions] = useState({} as Record<string, Session>)
+  const {sessions} = useSessionsStore()
+  //const [sessions, setSessions] = useState({} as Record<string, Session>)
   const [publicChats, setPublicChats] = useState<PublicChat[]>([])
-  const [userPublicKey, setUserPublicKey] = useState<string>("")
   const [publicChatTimestamps, setPublicChatTimestamps] = useState<
     Record<string, number>
   >({})
 
-  useEffect(() => {
-    localState.get("sessions").put({})
-
-    const unsub = localState.get("sessions").on(
-      (sessions) => {
-        if (!sessions || typeof sessions !== "object") return
-        setSessions({...sessions} as Record<string, Session>)
-      },
-      false,
-      3
-    )
-
-    // Get user's public key
-    const unsubPubKey = localState.get("user/publicKey").on((key) => {
-      if (key && typeof key === "string") {
-        setUserPublicKey(key)
-      }
-    })
-
-    return () => {
-      unsub()
-      unsubPubKey()
-    }
-  }, [])
+  const myPubKey = useUserStore((state) => state.publicKey)
 
   // Fetch public chats where the user has sent messages
   useEffect(() => {
-    if (!userPublicKey) return
+    if (!myPubKey) return
 
     const fetchPublicChats = async () => {
       try {
         // Fetch channel messages (kind 42) from the user
         const events = await ndk().fetchEvents({
           kinds: [CHANNEL_MESSAGE],
-          authors: [userPublicKey],
+          authors: [myPubKey],
           limit: 100,
         })
 
@@ -149,13 +127,14 @@ const ChatList = ({className}: ChatListProps) => {
     }
 
     fetchPublicChats()
-  }, [userPublicKey])
+  }, [myPubKey])
 
   // Combine private and public chats for display
+  console.log("sessions", Array.from(sessions))
   const allChats = Object.values(
     [
-      ...Object.entries(sessions)
-        .filter(([, session]) => !!session && !session.deleted)
+      ...Array.from(sessions)
+        .filter(([, session]) => !!session) //&& !session.state.deleted)
         .map(([id]) => ({id, isPublic: false})),
       ...publicChats.map((chat) => ({id: chat.id, isPublic: true})),
     ].reduce(
@@ -181,7 +160,8 @@ const ChatList = ({className}: ChatListProps) => {
     if (a.isPublic) {
       aLatest = publicChatTimestamps[a.id] || 0
     } else {
-      aLatest = sessions[a.id]?.latest?.created_at || 0
+      //aLatest = sessions.get(a.id)?.latest?.created_at || 0
+      aLatest = 0
     }
 
     // Get latest message time for chat B
@@ -189,7 +169,8 @@ const ChatList = ({className}: ChatListProps) => {
     if (b.isPublic) {
       bLatest = publicChatTimestamps[b.id] || 0
     } else {
-      bLatest = sessions[b.id]?.latest?.created_at || 0
+      //bLatest = sessions.get(b.id)?.latest?.created_at || 0
+      bLatest = 0
     }
 
     // Sort in descending order (newest first)
