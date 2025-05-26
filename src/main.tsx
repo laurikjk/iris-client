@@ -9,6 +9,7 @@ import {loadSessions} from "@/utils/chat/Sessions"
 import {migrateUserState} from "./utils/migration"
 import {useSettingsStore} from "@/stores/settings"
 import {loadInvites} from "@/utils/chat/Invites"
+import {useInvitesStore} from "./stores/invites"
 import {ndk} from "./utils/ndk"
 import {router} from "@/pages"
 
@@ -19,7 +20,7 @@ const state = useUserStore.getState()
 if (state.publicKey) {
   console.log("Initializing chat modules with existing user data")
   loadSessions()
-  loadInvites()
+  //loadInvites()
   subscribeToNotifications()
   subscribeToDMNotifications()
 }
@@ -54,11 +55,17 @@ useUserStore.subscribe((state) => {
   if (state.publicKey && state.publicKey !== parsedPrevKey) {
     console.log("Public key changed, initializing chat modules")
     loadSessions()
-    loadInvites()
+    //loadInvites()
     subscribeToNotifications()
     subscribeToDMNotifications()
   }
 })
+
+// useInvitesStore.subscribe((state) => {
+//   for (const invite of state.invites.values()) {
+//     invite.listen(decryptor, nostrSubscribe, onSession)
+//   }
+// })
 
 // Subscribe to theme changes
 useSettingsStore.subscribe((state) => {

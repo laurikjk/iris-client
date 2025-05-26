@@ -12,6 +12,7 @@ import {UserRow} from "@/shared/components/user/UserRow"
 import {RiInformationLine} from "@remixicon/react"
 import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {getSessions} from "@/utils/chat/Sessions"
+import {useInvitesStore} from "@/stores/invites"
 import {nip19, VerifiedEvent} from "nostr-tools"
 import {getInvites} from "@/utils/chat/Invites"
 import {hexToBytes} from "@noble/hashes/utils"
@@ -22,13 +23,14 @@ import {ndk} from "@/utils/ndk"
 
 const PrivateChatCreation = () => {
   const navigate = useNavigate()
-  const [invites, setInvites] = useState<Map<string, Invite>>(new Map())
+  //const [invites, setInvites] = useState<Map<string, Invite>>(new Map())
   const [inviteInput, setInviteInput] = useState("")
   const [showPublicInfo, setShowPublicInfo] = useState(false)
   const [searchInput, setSearchInput] = useState("")
   const [searchResults, setSearchResults] = useState<DoubleRatchetUser[]>([])
   const [doubleRatchetCount, setDoubleRatchetCount] = useState(0)
   const labelInputRef = useRef<HTMLInputElement>(null)
+  const {invites, setInvites, addInvite, removeInvite} = useInvitesStore()
 
   const myPubKey = useUserStore((state) => state.publicKey)
   const myPrivKey = useUserStore((state) => state.privateKey)
@@ -41,18 +43,20 @@ const PrivateChatCreation = () => {
 
     const createPrivateInviteIfNeeded = async () => {
       try {
-        const existingInvites = getInvites()
-        if (!existingInvites.has("private") && myPubKey) {
+        const currentInvites = new Map(invites) // Preserve current invites
+
+        if (!currentInvites.has("private") && myPubKey) {
           console.log("Creating private invite for test")
           const privateInvite = Invite.createNew(myPubKey, "Private Invite")
-          localState.get("invites").get("private").put(privateInvite.serialize())
-
-          const updatedInvites = new Map(existingInvites)
-          updatedInvites.set("private", privateInvite)
-          setInvites(updatedInvites)
-        } else {
-          setInvites(existingInvites)
+          currentInvites.set("private", privateInvite)
         }
+
+        // Merge existing invites with current invites
+        for (const [id, invite] of invites) {
+          currentInvites.set(id, invite)
+        }
+
+        setInvites(currentInvites)
       } catch (error) {
         console.error("Error creating private invite:", error)
       }
@@ -60,17 +64,12 @@ const PrivateChatCreation = () => {
 
     createPrivateInviteIfNeeded()
 
-    const unsubscribe = localState.get("invites").on(() => {
-      setInvites(getInvites())
-    })
-
     // Update count periodically
     const interval = setInterval(() => {
       setDoubleRatchetCount(getDoubleRatchetUsersCount())
     }, 1000)
 
     return () => {
-      unsubscribe()
       clearInterval(interval)
     }
   }, [navigate, myPubKey])
@@ -169,13 +168,13 @@ const PrivateChatCreation = () => {
     e.preventDefault()
 
     const privateInvite = Invite.createNew(myPubKey, "Private Invite")
-    localState.get("invites/private").put(privateInvite.serialize())
+    //localState.get("invites/private").put(privateInvite.serialize())
 
     if (labelInputRef.current) {
       const label = labelInputRef.current.value.trim() || "New Invite Link"
       const newLink = Invite.createNew(myPubKey, label)
       const id = crypto.randomUUID()
-      localState.get(`invites/${id}`).put(newLink.serialize())
+      //localState.get(`invites/${id}`).put(newLink.serialize())
 
       const updatedInvites = new Map(invites)
       updatedInvites.set("private", privateInvite)
@@ -191,7 +190,7 @@ const PrivateChatCreation = () => {
   }
 
   const deleteInvite = (id: string) => {
-    localState.get(`invites/${id}`).put(null)
+    //localState.get(`invites/${id}`).put(null)
     invites.delete(id)
     setInvites(new Map(invites))
   }
