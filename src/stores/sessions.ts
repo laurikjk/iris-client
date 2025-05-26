@@ -3,8 +3,11 @@ import {
   Session,
   serializeSessionState,
   deserializeSessionState,
+  SessionState,
+  CHAT_MESSAGE_KIND,
 } from "nostr-double-ratchet/src"
 import {createJSONStorage, persist} from "zustand/middleware"
+import {MessageType} from "@/pages/chats/message/Message"
 import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {Filter, VerifiedEvent} from "nostr-tools"
 import {hexToBytes} from "@noble/hashes/utils"
@@ -15,13 +18,47 @@ import {create} from "zustand"
 
 interface SessionStore {
   sessions: Map<string, Session>
+  events: Map<string, Map<string, MessageType>>
   acceptInvite: (url: string) => Promise<void>
+  sendMessage: (id: string, content: string, replyingToId?: string) => Promise<void>
 }
 
 const store = create<SessionStore>()(
   persist(
     (set, get) => ({
       sessions: new Map(),
+      events: new Map(),
+      sendMessage: async (sessionId: string, content: string, replyingToId?: string) => {
+        const session = get().sessions.get(sessionId)
+        if (!session) {
+          throw new Error("Session not found")
+        }
+        const {event, innerEvent} = session.sendEvent({
+          content,
+          kind: CHAT_MESSAGE_KIND,
+          tags: [
+            ...(replyingToId ? [["e", replyingToId]] : []),
+            ["ms", Date.now().toString()],
+          ],
+        })
+        const e = NDKEventFromRawEvent(event)
+        await e
+          .publish()
+          .then((res) => console.log("published", res))
+          .catch((e) => console.warn("Error publishing event:", e))
+        const newEvents = new Map(get().events)
+        const newMessages = new Map(newEvents.get(sessionId) || new Map())
+        const message: MessageType = {
+          ...innerEvent,
+          sender: "user",
+          reactions: {},
+        }
+        newMessages.set(innerEvent.id, message)
+        newEvents.set(sessionId, newMessages)
+        set({events: newEvents})
+        // make sure we persist session state
+        set({sessions: new Map(get().sessions)})
+      },
       acceptInvite: async (url: string) => {
         const invite = Invite.fromUrl(url)
         const myPubKey = useUserStore.getState().publicKey
