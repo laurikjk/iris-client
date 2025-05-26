@@ -36,17 +36,14 @@ const subscribe = (filter: Filter, onEvent: (event: VerifiedEvent) => void) => {
 const storage: PersistStorage<SessionStoreState> = {
   getItem: (name: string): StorageValue<SessionStoreState> | null => {
     const value = localStorage.getItem(name)
-    console.log("VALUE IN STORAGE", value)
     if (!value) return null
     const parsed = JSON.parse(value)
-    console.log("PARSED", parsed)
     const sessions = new Map<string, Session>(
       parsed.sessions.map(([id, serializedState]: [string, any]) => [
         id,
         new Session(subscribe, deserializeSessionState(serializedState)),
       ])
     )
-    console.log("SESSIONS", sessions)
     return {
       state: {
         sessions,
