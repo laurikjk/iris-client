@@ -6,7 +6,7 @@ import {
   SessionState,
   CHAT_MESSAGE_KIND,
 } from "nostr-double-ratchet/src"
-import {createJSONStorage, persist} from "zustand/middleware"
+import {persist, PersistStorage, StorageValue} from "zustand/middleware"
 import {MessageType} from "@/pages/chats/message/Message"
 import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {Filter, VerifiedEvent} from "nostr-tools"
@@ -21,6 +21,43 @@ interface SessionStore {
   events: Map<string, Map<string, MessageType>>
   acceptInvite: (url: string) => Promise<void>
   sendMessage: (id: string, content: string, replyingToId?: string) => Promise<void>
+}
+
+const storage: PersistStorage<SessionStore> = {
+  getItem: (name: string): StorageValue<SessionStore> | null => {
+    const value = localStorage.getItem(name)
+    if (!value) return null
+    const parsed = JSON.parse(value) as {sessions: [string, any][]}
+    const sessions = new Map<string, Session>(
+      parsed.sessions.map(([id, serializedState]) => [
+        id,
+        new Session(subscribe, deserializeSessionState(serializedState)),
+      ])
+    )
+    return {
+      state: {
+        sessions,
+        events: new Map(),
+        acceptInvite: async () => {},
+        sendMessage: async () => {},
+      },
+    }
+  },
+  setItem: (name: string, value: StorageValue<SessionStore>): void => {
+    const serializedSessions = Array.from(value.state.sessions.entries()).map(
+      ([id, session]) => [id, serializeSessionState(session.state)]
+    )
+    localStorage.setItem(
+      name,
+      JSON.stringify({
+        sessions: serializedSessions,
+        events: [],
+      })
+    )
+  },
+  removeItem: (name: string): void => {
+    localStorage.removeItem(name)
+  },
 }
 
 const store = create<SessionStore>()(
@@ -88,28 +125,12 @@ const store = create<SessionStore>()(
         const newSessions = new Map(get().sessions)
         newSessions.set(sessionId, session)
         set({sessions: newSessions})
+        console.log("sessions after acceptInvite", get().sessions)
       },
     }),
     {
       name: "sessions",
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        sessions: Array.from(state.sessions.entries()).map(([id, session]) => [
-          id,
-          serializeSessionState(session.state),
-        ]),
-      }),
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          const entries: [string, Session][] = Array.from(state.sessions).map(
-            ([id, serializedState]: [string, any]) => [
-              id,
-              new Session(subscribe, deserializeSessionState(serializedState)),
-            ]
-          )
-          state.sessions = new Map(entries)
-        }
-      },
+      storage: storage,
     }
   )
 )
@@ -127,6 +148,7 @@ useInvitesStore.subscribe((state) => {
     return
   }
   state.invites.forEach((invite) => {
+    console.log("setting listener for invite", invite)
     const decrypt = privateKey
       ? hexToBytes(privateKey)
       : async (cipherText: string, pubkey: string) => {
@@ -145,6 +167,7 @@ useInvitesStore.subscribe((state) => {
           throw new Error("No nostr extension or private key")
         }
     invite.listen(decrypt, subscribe, (session, identity) => {
+      console.log("listened a session from invite", session)
       const sessionId = `${identity}:${session.name}`
       const newSessions = new Map(store.getState().sessions)
       newSessions.set(sessionId, session)
