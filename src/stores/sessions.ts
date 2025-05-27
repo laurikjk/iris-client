@@ -173,13 +173,15 @@ const store = create<SessionStore>()(
   )
 )
 
-useInvitesStore.subscribe((state) => {
+export const setupInviteListeners = (invites: Map<string, Invite>) => {
+  console.log("[sessions] setupInviteListeners", invites)
   const privateKey = useUserStore.getState().privateKey
   if (!privateKey) {
     console.warn("No private key, skipping invite listening")
     return
   }
-  state.invites.forEach((invite) => {
+  console.log("[sessions] setupInviteListeners2", invites)
+  Array.from(invites).forEach(([id, invite]) => {
     const decrypt = privateKey
       ? hexToBytes(privateKey)
       : async (cipherText: string, pubkey: string) => {
@@ -212,6 +214,10 @@ useInvitesStore.subscribe((state) => {
       store.setState({sessions: newSessions})
     })
   })
+}
+
+useInvitesStore.subscribe((state) => {
+  setupInviteListeners(state.invites)
 })
 
 export const useSessionsStore = store

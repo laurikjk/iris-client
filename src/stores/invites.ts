@@ -1,11 +1,50 @@
-import {createJSONStorage, persist} from "zustand/middleware"
+import {persist, PersistStorage, StorageValue} from "zustand/middleware"
 import {Invite} from "nostr-double-ratchet/src"
+import {setupInviteListeners} from "./sessions"
 import {useUserStore} from "./user"
 import {create} from "zustand"
 
-interface InviteStore {
+interface InviteStoreState {
   invites: Map<string, Invite>
+}
+
+interface InviteStoreActions {
   createInvite: (label: string) => void
+}
+
+type InviteStore = InviteStoreState & InviteStoreActions
+
+const storage: PersistStorage<InviteStoreState> = {
+  getItem: (name: string): StorageValue<InviteStoreState> | null => {
+    const value = localStorage.getItem(name)
+    if (!value) return null
+    const parsed = JSON.parse(value)
+    const invites = new Map<string, Invite>(
+      parsed.invites.map(([id, serializedInvite]: [string, any]) => [
+        id,
+        Invite.deserialize(serializedInvite),
+      ])
+    )
+    return {
+      state: {
+        invites,
+      },
+    }
+  },
+  setItem: (name: string, value: StorageValue<InviteStoreState>): void => {
+    const serializedInvites = Array.from(value.state.invites.entries()).map(
+      ([id, invite]) => [id, invite.serialize()]
+    )
+    localStorage.setItem(
+      name,
+      JSON.stringify({
+        invites: serializedInvites,
+      })
+    )
+  },
+  removeItem: (name: string): void => {
+    localStorage.removeItem(name)
+  },
 }
 
 const store = create<InviteStore>()(
@@ -28,24 +67,7 @@ const store = create<InviteStore>()(
     }),
     {
       name: "invites",
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        invites: Array.from(state.invites.entries()).map(([id, invite]) => [
-          id,
-          invite.serialize(),
-        ]),
-      }),
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          const entries: [string, Invite][] = Array.from(state.invites).map(
-            ([id, serializedInvite]: [string, any]) => [
-              id,
-              Invite.deserialize(serializedInvite),
-            ]
-          )
-          state.invites = new Map(entries)
-        }
-      },
+      storage,
     }
   )
 )

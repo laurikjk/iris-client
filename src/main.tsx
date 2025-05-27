@@ -1,12 +1,14 @@
 import "@/index.css"
 
-import {RouterProvider} from "react-router"
+import {RouterProvider, Session} from "react-router"
 import {useUserStore} from "./stores/user"
 import ReactDOM from "react-dom/client"
 
 import {subscribeToDMNotifications, subscribeToNotifications} from "./utils/notifications"
+import {useSessionsStore} from "./stores/sessions"
 import {migrateUserState} from "./utils/migration"
 import {useSettingsStore} from "@/stores/settings"
+import {useInvitesStore} from "./stores/invites"
 import {ndk} from "./utils/ndk"
 import {router} from "@/pages"
 
@@ -59,4 +61,19 @@ useSettingsStore.subscribe((state) => {
   if (typeof state.appearance.theme === "string") {
     document.documentElement.setAttribute("data-theme", state.appearance.theme)
   }
+})
+
+const attachListeners = () => {}
+
+function waitForHydration<T extends {persist: any}>(store: T) {
+  return store.persist.hasHydrated()
+    ? Promise.resolve()
+    : new Promise<void>((res) => store.persist.onFinishHydration(() => res()))
+}
+
+await Promise.all([
+  waitForHydration(useInvitesStore),
+  waitForHydration(useSessionsStore),
+]).then(() => {
+  console.log("All stores hydrated")
 })
