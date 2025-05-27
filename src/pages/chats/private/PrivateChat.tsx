@@ -30,19 +30,20 @@ const Chat = ({id}: {id: string}) => {
       return
     }
 
-    const sessionEvents = events.get(id)
+    const sessionEvents = events[id]
     if (!sessionEvents) return
 
     const newMessages = new SortedMap<string, MessageType>([], comparator)
 
-    sessionEvents.forEach((message, messageId) => {
+    sessionEvents.forEach((message) => {
       if (!haveReply && message.sender !== "user") {
         setHaveReply(true)
       }
       if (!haveSent && message.sender === "user") {
         setHaveSent(true)
       }
-      newMessages.set(messageId, message)
+      newMessages.set(message.id, message)
+      console.log("message", message)
     })
 
     setMessages(newMessages)

@@ -3,8 +3,8 @@ import {
   serializeSessionState,
   deserializeSessionState,
 } from "nostr-double-ratchet/src"
-import {useSessionsStore} from "@/stores/sessions"
 import {Filter, VerifiedEvent} from "nostr-tools"
+import {addEvent} from "./EventTracker"
 import {ndk} from "@/utils/ndk"
 
 const sessions = new Map<string, Session>()
@@ -22,7 +22,7 @@ const listen = () => {
   Array.from(sessions).forEach(([id, session]) => {
     if (subscriptions.has(id)) return
     const unsubscribe = session.onEvent((event) => {
-      console.log("session event", event)
+      addEvent(id, event)
     })
     subscriptions.set(id, unsubscribe)
   })

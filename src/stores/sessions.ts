@@ -1,6 +1,7 @@
-import {persist, PersistStorage, StorageValue} from "zustand/middleware"
+import {addEvent, getEvents, loadEvents} from "@/utils/chat/EventTracker"
 import {getSessions, loadSessions} from "@/utils/chat/SessionTracker"
 import {Invite, CHAT_MESSAGE_KIND} from "nostr-double-ratchet/src"
+import {createJSONStorage, persist} from "zustand/middleware"
 import {MessageType} from "@/pages/chats/message/Message"
 import {addSession} from "@/utils/chat/SessionTracker"
 import {NDKEventFromRawEvent} from "@/utils/nostr"
@@ -13,8 +14,7 @@ import {create} from "zustand"
 
 interface SessionStoreState {
   sessions: string[]
-  // sessionId -> messageId -> message
-  events: Map<string, Map<string, MessageType>>
+  events: Record<string, MessageType[]>
 }
 
 interface SessionStoreActions {
@@ -29,48 +29,11 @@ const subscribe = (filter: Filter, onEvent: (event: VerifiedEvent) => void) => {
   return () => sub.stop()
 }
 
-const storage: PersistStorage<SessionStoreState> = {
-  getItem: (name: string): StorageValue<SessionStoreState> | null => {
-    const value = localStorage.getItem(name)
-    if (!value) return null
-    const parsed = JSON.parse(value)
-    const sessions = parsed.sessions
-    const events = new Map<string, Map<string, MessageType>>(
-      parsed.events?.map(([sessionId, messages]: [string, [string, MessageType][]]) => [
-        sessionId,
-        new Map(messages),
-      ]) || []
-    )
-    return {
-      state: {
-        sessions,
-        events,
-      },
-    }
-  },
-  setItem: (name: string, value: StorageValue<SessionStoreState>): void => {
-    const serializedSessions = value.state.sessions
-    const serializedEvents = Array.from(value.state.events.entries()).map(
-      ([sessionId, messages]) => [sessionId, Array.from(messages.entries())]
-    )
-    localStorage.setItem(
-      name,
-      JSON.stringify({
-        sessions: serializedSessions,
-        events: serializedEvents,
-      })
-    )
-  },
-  removeItem: (name: string): void => {
-    localStorage.removeItem(name)
-  },
-}
-
 const store = create<SessionStore>()(
   persist(
     (set, get) => ({
       sessions: [],
-      events: new Map(),
+      events: {},
       sendMessage: async (sessionId: string, content: string, replyingToId?: string) => {
         const session = getSessions().get(sessionId)
         if (!session) {
@@ -89,18 +52,21 @@ const store = create<SessionStore>()(
           .publish()
           .then((res) => console.log("published", res))
           .catch((e) => console.warn("Error publishing event:", e))
-        const newEvents = new Map(get().events)
-        const newMessages = new Map(newEvents.get(sessionId) || new Map())
         const message: MessageType = {
           ...innerEvent,
           sender: "user",
           reactions: {},
         }
-        newMessages.set(innerEvent.id, message)
-        newEvents.set(sessionId, newMessages)
-        set({events: newEvents})
-        // make sure we persist session state
-        set({sessions: Array.from(getSessions().keys())})
+        addEvent(sessionId, message)
+        const events = getEvents()
+        const sessionEvents = events.get(sessionId)
+        const newEvents = Array.from(sessionEvents?.values() || [])
+        set({
+          events: {
+            ...get().events,
+            [sessionId]: newEvents,
+          },
+        })
       },
       acceptInvite: async (url: string) => {
         const invite = Invite.fromUrl(url)
@@ -136,9 +102,10 @@ const store = create<SessionStore>()(
         console.log("onRehydrateStorage1", state)
         return (state) => {
           loadSessions()
+          loadEvents()
         }
       },
-      storage: storage,
+      storage: createJSONStorage(() => localStorage),
     }
   )
 )
