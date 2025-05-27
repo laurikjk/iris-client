@@ -26,6 +26,7 @@ interface SessionStoreActions {
   acceptInvite: (url: string) => Promise<void>
   sendMessage: (id: string, content: string, replyingToId?: string) => Promise<void>
   listenToInvite: (invite: Invite) => void
+  addSession: (session: Session, sessionId: string) => void
   listenToSession: (session: Session, sessionId: string) => void
 }
 
@@ -116,6 +117,12 @@ const store = create<SessionStore>()(
         // make sure we persist session state
         set({sessions: new Map(get().sessions)})
       },
+      addSession: (session: Session, sessionId: string) => {
+        const newSessions = new Map(get().sessions)
+        newSessions.set(sessionId, session)
+        get().listenToSession(session, sessionId)
+        set({sessions: newSessions})
+      },
       acceptInvite: async (url: string) => {
         const invite = Invite.fromUrl(url)
         const myPubKey = useUserStore.getState().publicKey
@@ -142,9 +149,7 @@ const store = create<SessionStore>()(
           .then((res) => console.log("published", res))
           .catch((e) => console.warn("Error publishing event:", e))
         const sessionId = `${invite.inviter}:${session.name}`
-        const newSessions = new Map(get().sessions)
-        newSessions.set(sessionId, session)
-        set({sessions: newSessions})
+        get().addSession(session, sessionId)
       },
       listenToInvite: (invite: Invite) => {
         const myPrivKey = useUserStore.getState().privateKey
@@ -167,10 +172,7 @@ const store = create<SessionStore>()(
             }
         invite.listen(decrypt, subscribe, (session, identity) => {
           const sessionId = `${identity}:${session.name}`
-          const newSessions = new Map(get().sessions)
-          newSessions.set(sessionId, session)
-          get().listenToSession(session, sessionId)
-          set({sessions: newSessions})
+          get().addSession(session, sessionId)
         })
       },
       listenToSession: (session: Session, sessionId: string) => {
