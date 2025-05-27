@@ -10,7 +10,6 @@ import {UserRow} from "@/shared/components/user/UserRow"
 import {useSessionsStore} from "@/stores/sessions"
 import {RiInformationLine} from "@remixicon/react"
 import {getSessions} from "@/utils/chat/Sessions"
-import {useInvitesStore} from "@/stores/invites"
 import {Invite} from "nostr-double-ratchet/src"
 import {useUserStore} from "@/stores/user"
 import {useNavigate} from "react-router"
@@ -18,8 +17,7 @@ import {nip19} from "nostr-tools"
 
 const PrivateChatCreation = () => {
   const navigate = useNavigate()
-  const {invites, createInvite} = useInvitesStore()
-  const {acceptInvite} = useSessionsStore()
+  const {invites, acceptInvite, createInvite} = useSessionsStore()
   const [inviteInput, setInviteInput] = useState("")
   const [showPublicInfo, setShowPublicInfo] = useState(false)
   const [searchInput, setSearchInput] = useState("")
