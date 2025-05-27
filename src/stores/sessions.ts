@@ -116,7 +116,6 @@ const store = create<SessionStore>()(
     {
       name: "sessions",
       onRehydrateStorage: (state) => {
-        console.log("onRehydrateStorage1", state)
         return (state) => {
           Array.from(state?.sessions || []).forEach(([sessionId, session]) => {
             session.onEvent((event) => {
@@ -138,6 +137,16 @@ const store = create<SessionStore>()(
             const [id, session] = entry as [string, Session]
             return [id, serializeSessionState(session.state)]
           }),
+          events: Array.from(state.events.entries()).map((entry) => {
+            const [sessionId, messages] = entry as [string, Map<string, MessageType>]
+            return [
+              sessionId,
+              Array.from(messages.entries()).map(([messageId, message]) => [
+                messageId,
+                message,
+              ]),
+            ]
+          }),
         }
       },
       merge: (persistedState: any, currentState: SessionStore) => {
@@ -150,7 +159,15 @@ const store = create<SessionStore>()(
         return {
           ...currentState,
           sessions: new Map(newSessions),
-          events: new Map(),
+          events: new Map(
+            persistedState.events.map((entry: [string, [string, MessageType][]]) => {
+              const [sessionId, messages] = entry
+              return [
+                sessionId,
+                new Map(messages.map(([messageId, message]) => [messageId, message])),
+              ]
+            })
+          ),
         }
       },
     }
