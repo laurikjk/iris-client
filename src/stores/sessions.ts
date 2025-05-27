@@ -119,6 +119,7 @@ const store = create<SessionStore>()(
         return (state) => {
           Array.from(state?.sessions || []).forEach(([sessionId, session]) => {
             session.onEvent((event) => {
+              console.log("HYDRATION SET ON EVENT", event)
               const newEvents = new Map(store.getState().events)
               const newMessages = new Map(newEvents.get(sessionId) || new Map())
               newMessages.set(event.id, event)
@@ -199,11 +200,11 @@ useInvitesStore.subscribe((state) => {
           throw new Error("No nostr extension or private key")
         }
     invite.listen(decrypt, subscribe, (session, identity) => {
-      console.log("listened a session from invite", session)
       const sessionId = `${identity}:${session.name}`
       const newSessions = new Map(store.getState().sessions)
       newSessions.set(sessionId, session)
       session.onEvent((event) => {
+        console.log("INVITE SET ON EVENT", event)
         const newEvents = new Map(store.getState().events)
         const newMessages = new Map(newEvents.get(sessionId) || new Map())
         newMessages.set(event.id, event)
