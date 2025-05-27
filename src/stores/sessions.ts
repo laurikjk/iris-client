@@ -3,7 +3,6 @@ import {
   Session,
   serializeSessionState,
   deserializeSessionState,
-  SessionState,
   CHAT_MESSAGE_KIND,
 } from "nostr-double-ratchet/src"
 import {persist, PersistStorage, StorageValue} from "zustand/middleware"

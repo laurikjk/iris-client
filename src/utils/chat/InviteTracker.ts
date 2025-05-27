@@ -1,11 +1,11 @@
-import {Invite, Session} from "nostr-double-ratchet/src"
 import {Filter, VerifiedEvent} from "nostr-tools"
+import {Invite} from "nostr-double-ratchet/src"
 import {hexToBytes} from "@noble/hashes/utils"
+import {addSession} from "./SessionTracker"
 import {ndk} from "@/utils/ndk"
 
 const invites = new Map<string, Invite>()
 const subscriptions = new Map<string, () => void>()
-const sessions = new Map<string, Session>()
 
 const nostrSubscribe = (filter: Filter, onEvent: (e: VerifiedEvent) => void) => {
   const sub = ndk().subscribe(filter)
@@ -36,14 +36,7 @@ const listen = (myPrivKey: string) => {
           }
           throw new Error("No nostr extension or private key")
         }
-    const unsubscribe = invite.listen(
-      decrypt,
-      nostrSubscribe,
-      async (session: Session, identity?: string) => {
-        const sessionId = `${identity}:${session.name}`
-        sessions.set(sessionId, session)
-      }
-    )
+    const unsubscribe = invite.listen(decrypt, nostrSubscribe, addSession)
     subscriptions.set(id, unsubscribe)
   }
 }
@@ -53,6 +46,7 @@ export const addInvite = (label: string, myPubKey: string, myPrivKey: string) =>
   const invite = Invite.createNew(myPubKey, label)
   invites.set(uuid, invite)
   listen(myPrivKey)
+  storeInvites()
 }
 
 export const getInvites = () => invites
@@ -74,15 +68,16 @@ const deserializeInvites = (serializedInvites: [string, any][]) => {
 }
 
 export const storeInvites = () => {
-  localStorage.setItem("invites", JSON.stringify(serializeInvites()))
+  localStorage.setItem("InviteTracker", JSON.stringify(serializeInvites()))
 }
 
 export const loadInvites = (myPrivKey: string) => {
-  const serializedInvites = localStorage.getItem("invites")
+  const serializedInvites = localStorage.getItem("InviteTracker")
   if (!serializedInvites) return
-  const invites = deserializeInvites(JSON.parse(serializedInvites))
-  invites.forEach((invite, id) => {
+  const parsedInvites = JSON.parse(serializedInvites)
+  const newInvites = deserializeInvites(parsedInvites)
+  newInvites.forEach((invite, id) => {
     invites.set(id, invite)
-    listen(myPrivKey)
   })
+  listen(myPrivKey)
 }

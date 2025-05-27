@@ -1,10 +1,15 @@
-import {addInvite, getInvites, storeInvites} from "@/utils/chat/InviteTracker"
-import {persist} from "zustand/middleware"
+import {
+  addInvite,
+  getInvites,
+  loadInvites,
+  storeInvites,
+} from "@/utils/chat/InviteTracker"
+import {createJSONStorage, persist} from "zustand/middleware"
 import {useUserStore} from "./user"
 import {create} from "zustand"
 interface InviteStoreState {
   // store just the names
-  invites: Set<string>
+  invites: string[]
 }
 
 interface InviteStoreActions {
@@ -16,7 +21,7 @@ type InviteStore = InviteStoreState & InviteStoreActions
 const store = create<InviteStore>()(
   persist(
     (set) => ({
-      invites: new Set(),
+      invites: [],
       createInvite: (label: string) => {
         const myPubKey = useUserStore.getState().publicKey
         const myPrivKey = useUserStore.getState().privateKey
@@ -28,12 +33,22 @@ const store = create<InviteStore>()(
 
         addInvite(label, myPubKey, myPrivKey)
         storeInvites()
-        const invites = new Set(getInvites().keys())
+        const invites = Array.from(getInvites().keys())
         set({invites})
       },
     }),
     {
       name: "invites",
+      storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: (state) => {
+        console.log("invites onRehydrateStorage", state)
+        return (state) => {
+          const privateKey = useUserStore.getState().privateKey
+          if (privateKey) {
+            loadInvites(privateKey)
+          }
+        }
+      },
     }
   )
 )
