@@ -2,7 +2,6 @@ import {createJSONStorage, persist} from "zustand/middleware"
 import {Invite} from "nostr-double-ratchet/src"
 import {useUserStore} from "./user"
 import {create} from "zustand"
-
 interface InviteStore {
   invites: Map<string, Invite>
   createInvite: (label: string) => void
