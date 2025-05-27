@@ -6,7 +6,12 @@ import {
   SessionState,
   CHAT_MESSAGE_KIND,
 } from "nostr-double-ratchet/src"
-import {persist, PersistStorage, StorageValue} from "zustand/middleware"
+import {
+  createJSONStorage,
+  persist,
+  PersistStorage,
+  StorageValue,
+} from "zustand/middleware"
 import {MessageType} from "@/pages/chats/message/Message"
 import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {Filter, VerifiedEvent} from "nostr-tools"
@@ -34,48 +39,52 @@ const subscribe = (filter: Filter, onEvent: (event: VerifiedEvent) => void) => {
   return () => sub.stop()
 }
 
-const storage: PersistStorage<SessionStoreState> = {
-  getItem: (name: string): StorageValue<SessionStoreState> | null => {
-    const value = localStorage.getItem(name)
-    if (!value) return null
-    const parsed = JSON.parse(value)
-    const sessions = new Map<string, Session>(
-      parsed.sessions.map(([id, serializedState]: [string, any]) => [
-        id,
-        new Session(subscribe, deserializeSessionState(serializedState)),
-      ])
-    )
-    const events = new Map<string, Map<string, MessageType>>(
-      parsed.events?.map(([sessionId, messages]: [string, [string, MessageType][]]) => [
-        sessionId,
-        new Map(messages),
-      ]) || []
-    )
-    return {
-      state: {
-        sessions,
-        events,
-      },
-    }
-  },
-  setItem: (name: string, value: StorageValue<SessionStoreState>): void => {
-    const serializedSessions = Array.from(value.state.sessions.entries()).map(
-      ([id, session]) => [id, serializeSessionState(session.state)]
-    )
-    const serializedEvents = Array.from(value.state.events.entries()).map(
-      ([sessionId, messages]) => [sessionId, Array.from(messages.entries())]
-    )
-    localStorage.setItem(
-      name,
-      JSON.stringify({
-        sessions: serializedSessions,
-        events: serializedEvents,
-      })
-    )
-  },
-  removeItem: (name: string): void => {
-    localStorage.removeItem(name)
-  },
+// const storage: PersistStorage<SessionStoreState> = {
+//   getItem: (name: string): StorageValue<SessionStoreState> | null => {
+//     const value = localStorage.getItem(name)
+//     if (!value) return null
+//     const parsed = JSON.parse(value)
+//     const sessions = new Map<string, Session>(
+//       parsed.sessions.map(([id, serializedState]: [string, any]) => [
+//         id,
+//         new Session(subscribe, deserializeSessionState(serializedState)),
+//       ])
+//     )
+//     const events = new Map<string, Map<string, MessageType>>(
+//       parsed.events?.map(([sessionId, messages]: [string, [string, MessageType][]]) => [
+//         sessionId,
+//         new Map(messages),
+//       ]) || []
+//     )
+//     return {
+//       state: {
+//         sessions,
+//         events,
+//       },
+//     }
+//   },
+//   setItem: (name: string, value: StorageValue<SessionStoreState>): void => {
+//     const serializedSessions = Array.from(value.state.sessions.entries()).map(
+//       ([id, session]) => [id, serializeSessionState(session.state)]
+//     )
+//     const serializedEvents = Array.from(value.state.events.entries()).map(
+//       ([sessionId, messages]) => [sessionId, Array.from(messages.entries())]
+//     )
+//     localStorage.setItem(
+//       name,
+//       JSON.stringify({
+//         sessions: serializedSessions,
+//         events: serializedEvents,
+//       })
+//     )
+//   },
+//   removeItem: (name: string): void => {
+//     localStorage.removeItem(name)
+//   },
+// }
+
+interface SessionStorePersistedState {
+  sessions: [string, string][]
 }
 
 const store = create<SessionStore>()(
@@ -169,7 +178,29 @@ const store = create<SessionStore>()(
           })
         }
       },
-      storage: storage,
+      //storage: storage,
+      storage: createJSONStorage(() => localStorage),
+      partialize: (state) => {
+        return {
+          sessions: Array.from(state.sessions.entries()).map((entry) => {
+            const [id, session] = entry as [string, Session]
+            return [id, serializeSessionState(session.state)]
+          }),
+        }
+      },
+      merge: (persistedState: any, currentState: SessionStore) => {
+        const newSessions = persistedState.sessions.map(
+          ([id, sessionState]: [string, string]) => {
+            const session = new Session(subscribe, deserializeSessionState(sessionState))
+            return [id, session]
+          }
+        )
+        return {
+          ...currentState,
+          sessions: new Map(newSessions),
+          events: new Map(),
+        }
+      },
     }
   )
 )
