@@ -34,15 +34,15 @@ const store = create<InviteStore>()(
           invite.serialize(),
         ]),
       }),
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          const entries: [string, Invite][] = Array.from(state.invites).map(
-            ([id, serializedInvite]: [string, any]) => [
+      merge: (persistedState: any, currentState) => {
+        return {
+          ...currentState,
+          invites: new Map(
+            persistedState.invites.map(([id, serializedInvite]: [string, string]) => [
               id,
               Invite.deserialize(serializedInvite),
-            ]
-          )
-          state.invites = new Map(entries)
+            ])
+          ),
         }
       },
     }
