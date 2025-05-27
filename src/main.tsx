@@ -4,8 +4,12 @@ import {RouterProvider, Session} from "react-router"
 import {useUserStore} from "./stores/user"
 import ReactDOM from "react-dom/client"
 
+import {
+  useSessionsStore,
+  setupInviteListeners,
+  setupSessionListeners,
+} from "./stores/sessions"
 import {subscribeToDMNotifications, subscribeToNotifications} from "./utils/notifications"
-import {useSessionsStore} from "./stores/sessions"
 import {migrateUserState} from "./utils/migration"
 import {useSettingsStore} from "@/stores/settings"
 import {useInvitesStore} from "./stores/invites"
@@ -63,7 +67,13 @@ useSettingsStore.subscribe((state) => {
   }
 })
 
-const attachListeners = () => {}
+const attachListeners = () => {
+  const {invites} = useInvitesStore.getState()
+  const {sessions} = useSessionsStore.getState()
+
+  setupInviteListeners(invites)
+  setupSessionListeners(sessions)
+}
 
 function waitForHydration<T extends {persist: any}>(store: T) {
   return store.persist.hasHydrated()
@@ -76,4 +86,5 @@ await Promise.all([
   waitForHydration(useSessionsStore),
 ]).then(() => {
   console.log("All stores hydrated")
+  attachListeners()
 })

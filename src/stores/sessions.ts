@@ -216,8 +216,16 @@ export const setupInviteListeners = (invites: Map<string, Invite>) => {
   })
 }
 
-useInvitesStore.subscribe((state) => {
-  setupInviteListeners(state.invites)
-})
+export const setupSessionListeners = (sessions: Map<string, Session>) => {
+  Array.from(sessions).forEach(([sessionId, session]) => {
+    session.onEvent((event) => {
+      const newEvents = new Map(store.getState().events)
+      const newMessages = new Map(newEvents.get(sessionId) || new Map())
+      newMessages.set(event.id, event)
+      newEvents.set(sessionId, newMessages)
+      store.setState({events: newEvents})
+    })
+  })
+}
 
 export const useSessionsStore = store
