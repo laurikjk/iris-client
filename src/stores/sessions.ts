@@ -16,6 +16,11 @@ import {useUserStore} from "./user"
 import {ndk} from "@/utils/ndk"
 import {create} from "zustand"
 
+function waitForHydration<T extends {persist: any}>(store: T) {
+  return store.persist.hasHydrated()
+    ? Promise.resolve()
+    : new Promise<void>((res) => store.persist.onFinishHydration(() => res()))
+}
 interface SessionStoreState {
   sessions: Map<string, Session>
   // sessionId -> messageId -> message
@@ -24,6 +29,7 @@ interface SessionStoreState {
 
 interface SessionStoreActions {
   acceptInvite: (url: string) => Promise<void>
+  addMessage: (sessionId: string, message: MessageType) => void
   sendMessage: (id: string, content: string, replyingToId?: string) => Promise<void>
   listenToInvite: (invite: Invite) => void
   addSession: (session: Session, sessionId: string) => void
@@ -86,6 +92,15 @@ const store = create<SessionStore>()(
     (set, get) => ({
       sessions: new Map(),
       events: new Map(),
+      addMessage: (sessionId: string, message: MessageType) => {
+        const newEvents = new Map(get().events)
+        const newMessages = new Map(newEvents.get(sessionId) || new Map())
+        newMessages.set(message.id, message)
+        newEvents.set(sessionId, newMessages)
+        set({events: newEvents})
+        // make sure we persist session state
+        set({sessions: new Map(get().sessions)})
+      },
       sendMessage: async (sessionId: string, content: string, replyingToId?: string) => {
         const session = get().sessions.get(sessionId)
         if (!session) {
@@ -104,18 +119,12 @@ const store = create<SessionStore>()(
           .publish()
           .then((res) => console.log("published", res))
           .catch((e) => console.warn("Error publishing event:", e))
-        const newEvents = new Map(get().events)
-        const newMessages = new Map(newEvents.get(sessionId) || new Map())
         const message: MessageType = {
           ...innerEvent,
           sender: "user",
           reactions: {},
         }
-        newMessages.set(innerEvent.id, message)
-        newEvents.set(sessionId, newMessages)
-        set({events: newEvents})
-        // make sure we persist session state
-        set({sessions: new Map(get().sessions)})
+        get().addMessage(sessionId, message)
       },
       addSession: (session: Session, sessionId: string) => {
         const newSessions = new Map(get().sessions)
@@ -177,17 +186,36 @@ const store = create<SessionStore>()(
       },
       listenToSession: (session: Session, sessionId: string) => {
         session.onEvent((event) => {
-          const newEvents = new Map(get().events)
-          const newMessages = new Map(newEvents.get(sessionId) || new Map())
-          newMessages.set(event.id, event)
-          newEvents.set(sessionId, newMessages)
-          set({events: newEvents})
+          get().addMessage(sessionId, event)
         })
       },
     }),
     {
       name: "sessions",
       storage: storage,
+      onRehydrateStorage: (stateBefore) => {
+        return async (stateAfter) => {
+          try {
+            if (!stateAfter) return
+            await Promise.all([
+              waitForHydration(useUserStore),
+              waitForHydration(useInvitesStore),
+            ])
+            Array.from(useInvitesStore.getState().invites).forEach(
+              ([inviteId, invite]) => {
+                console.log("listenToInvite", inviteId, invite)
+                store.getState().listenToInvite(invite)
+              }
+            )
+            Array.from(stateAfter.sessions).forEach(([sessionId, session]) => {
+              console.log("listenToSession", sessionId, session)
+              store.getState().listenToSession(session, sessionId)
+            })
+          } catch (e) {
+            console.warn("Error attaching listeners", e)
+          }
+        }
+      },
     }
   )
 )

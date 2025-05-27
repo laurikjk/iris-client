@@ -130,7 +130,6 @@ const ChatList = ({className}: ChatListProps) => {
   }, [myPubKey])
 
   // Combine private and public chats for display
-  console.log("sessions", Array.from(sessions))
   const allChats = Object.values(
     [
       ...Array.from(sessions)

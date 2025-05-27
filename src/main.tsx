@@ -61,30 +61,3 @@ useSettingsStore.subscribe((state) => {
     document.documentElement.setAttribute("data-theme", state.appearance.theme)
   }
 })
-
-const attachListeners = () => {
-  try {
-    const {invites} = useInvitesStore.getState()
-    const {sessions, listenToInvite, listenToSession} = useSessionsStore.getState()
-
-    Array.from(invites.values()).forEach(listenToInvite)
-    Array.from(sessions).forEach(([sessionId, session]) =>
-      listenToSession(session, sessionId)
-    )
-  } catch (e) {
-    console.error("Error attaching listeners", e)
-  }
-}
-
-function waitForHydration<T extends {persist: any}>(store: T) {
-  return store.persist.hasHydrated()
-    ? Promise.resolve()
-    : new Promise<void>((res) => store.persist.onFinishHydration(() => res()))
-}
-
-await Promise.all([
-  waitForHydration(useInvitesStore),
-  waitForHydration(useSessionsStore),
-]).then(() => {
-  attachListeners()
-})
