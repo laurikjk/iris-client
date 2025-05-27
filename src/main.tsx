@@ -1,18 +1,13 @@
 import "@/index.css"
 
-import {RouterProvider, Session} from "react-router"
-import {useUserStore} from "./stores/user"
-import ReactDOM from "react-dom/client"
-
-import {
-  useSessionsStore,
-  setupInviteListeners,
-  setupSessionListeners,
-} from "./stores/sessions"
 import {subscribeToDMNotifications, subscribeToNotifications} from "./utils/notifications"
+import {useSessionsStore} from "./stores/sessions"
 import {migrateUserState} from "./utils/migration"
 import {useSettingsStore} from "@/stores/settings"
 import {useInvitesStore} from "./stores/invites"
+import {RouterProvider} from "react-router"
+import {useUserStore} from "./stores/user"
+import ReactDOM from "react-dom/client"
 import {ndk} from "./utils/ndk"
 import {router} from "@/pages"
 
@@ -70,10 +65,12 @@ useSettingsStore.subscribe((state) => {
 const attachListeners = () => {
   try {
     const {invites} = useInvitesStore.getState()
-    const {sessions} = useSessionsStore.getState()
+    const {sessions, listenToInvite, listenToSession} = useSessionsStore.getState()
 
-    setupInviteListeners(invites)
-    setupSessionListeners(sessions)
+    Array.from(invites.values()).forEach(listenToInvite)
+    Array.from(sessions).forEach(([sessionId, session]) =>
+      listenToSession(session, sessionId)
+    )
   } catch (e) {
     console.error("Error attaching listeners", e)
   }

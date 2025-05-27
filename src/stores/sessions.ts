@@ -25,6 +25,8 @@ interface SessionStoreState {
 interface SessionStoreActions {
   acceptInvite: (url: string) => Promise<void>
   sendMessage: (id: string, content: string, replyingToId?: string) => Promise<void>
+  listenToInvite: (invite: Invite) => void
+  listenToSession: (session: Session, sessionId: string) => void
 }
 
 type SessionStore = SessionStoreState & SessionStoreActions
@@ -142,6 +144,36 @@ const store = create<SessionStore>()(
         const sessionId = `${invite.inviter}:${session.name}`
         const newSessions = new Map(get().sessions)
         newSessions.set(sessionId, session)
+        set({sessions: newSessions})
+      },
+      listenToInvite: (invite: Invite) => {
+        const myPrivKey = useUserStore.getState().privateKey
+        const decrypt = myPrivKey
+          ? hexToBytes(myPrivKey)
+          : async (cipherText: string, pubkey: string) => {
+              if (window.nostr?.nip44) {
+                try {
+                  const result = await window.nostr.nip44.decrypt(pubkey, cipherText)
+                  if (!result || typeof result !== "string") {
+                    throw new Error("Failed to decrypt")
+                  }
+                  return result
+                } catch (error) {
+                  console.error("NIP-44 decryption failed:", error)
+                  throw new Error("Failed to decrypt message")
+                }
+              }
+              throw new Error("No nostr extension or private key")
+            }
+        invite.listen(decrypt, subscribe, (session, identity) => {
+          const sessionId = `${identity}:${session.name}`
+          const newSessions = new Map(get().sessions)
+          newSessions.set(sessionId, session)
+          get().listenToSession(session, sessionId)
+          set({sessions: newSessions})
+        })
+      },
+      listenToSession: (session: Session, sessionId: string) => {
         session.onEvent((event) => {
           const newEvents = new Map(get().events)
           const newMessages = new Map(newEvents.get(sessionId) || new Map())
@@ -149,7 +181,6 @@ const store = create<SessionStore>()(
           newEvents.set(sessionId, newMessages)
           set({events: newEvents})
         })
-        set({sessions: newSessions})
       },
     }),
     {
@@ -158,75 +189,5 @@ const store = create<SessionStore>()(
     }
   )
 )
-
-export const setupInviteListeners = (invites: Map<string, Invite>) => {
-  console.log("[sessions] setupInviteListeners", invites)
-  const privateKey = useUserStore.getState().privateKey
-  if (!privateKey) {
-    console.warn("No private key, skipping invite listening")
-    return
-  }
-  console.log("[sessions] setupInviteListeners2", invites)
-  Array.from(invites).forEach(([id, invite]) => {
-    const decrypt = privateKey
-      ? hexToBytes(privateKey)
-      : async (cipherText: string, pubkey: string) => {
-          if (window.nostr?.nip44) {
-            try {
-              const result = await window.nostr.nip44.decrypt(pubkey, cipherText)
-              if (!result || typeof result !== "string") {
-                throw new Error("Failed to decrypt")
-              }
-              return result
-            } catch (error) {
-              console.error("NIP-44 decryption failed:", error)
-              throw new Error("Failed to decrypt message")
-            }
-          }
-          throw new Error("No nostr extension or private key")
-        }
-    invite.listen(decrypt, subscribe, (session, identity) => {
-      console.log("listened a session from invite", session)
-      const sessionId = `${identity}:${session.name}`
-      const newSessions = new Map(store.getState().sessions)
-      newSessions.set(sessionId, session)
-      session.onEvent((event) => {
-        const newEvents = new Map(store.getState().events)
-        const newMessages = new Map(newEvents.get(sessionId) || new Map())
-        newMessages.set(event.id, event)
-        newEvents.set(sessionId, newMessages)
-        store.setState({events: newEvents})
-      })
-      store.setState({sessions: newSessions})
-    })
-  })
-}
-
-export const setupSessionListeners = (sessions: Map<string, Session>) => {
-  Array.from(sessions).forEach(([sessionId, session]) => {
-    session.onEvent((event) => {
-      const newEvents = new Map(store.getState().events)
-      const newMessages = new Map(newEvents.get(sessionId) || new Map())
-      newMessages.set(event.id, event)
-      newEvents.set(sessionId, newMessages)
-      store.setState({events: newEvents})
-    })
-  })
-}
-
-useInvitesStore.subscribe((state, prevState) => {
-  const newIds = state.invites.keys()
-  const prevIds = prevState.invites.keys()
-  const newIdsSet = new Set(newIds)
-  const prevIdsSet = new Set(prevIds)
-  newIdsSet.forEach((id) => {
-    if (!prevIdsSet.has(id)) {
-      const invite = state.invites.get(id)
-      if (invite) {
-        setupInviteListeners(new Map([[id, invite]]))
-      }
-    }
-  })
-})
 
 export const useSessionsStore = store
