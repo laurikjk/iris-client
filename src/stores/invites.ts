@@ -38,7 +38,7 @@ const store = create<InviteStore>()(
       },
     }),
     {
-      name: "invites",
+      name: "ZustandInvites",
       storage: createJSONStorage(() => localStorage),
       onRehydrateStorage: (state) => {
         console.log("invites onRehydrateStorage", state)

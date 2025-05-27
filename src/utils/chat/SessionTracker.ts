@@ -33,6 +33,7 @@ export const getSessions = () => {
 }
 
 export const addSession = (session: Session, identity?: string) => {
+  console.log("addSession", session, identity)
   const sessionId = `${identity}:${session.name}`
   sessions.set(sessionId, session)
   listen()
@@ -58,11 +59,11 @@ const deserializeSessions = (serializedSessions: [string, any][]) => {
 }
 
 export const storeSessions = () => {
-  localStorage.setItem("sessions", JSON.stringify(serializeSessions()))
+  localStorage.setItem("SessionTracker", JSON.stringify(serializeSessions()))
 }
 
 export const loadSessions = () => {
-  const serializedSessions = JSON.parse(localStorage.getItem("sessions") || "[]")
+  const serializedSessions = JSON.parse(localStorage.getItem("SessionTracker") || "[]")
   const newSessions = deserializeSessions(serializedSessions)
   newSessions.forEach((session, id) => {
     sessions.set(id, session)

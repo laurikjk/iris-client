@@ -97,7 +97,7 @@ const store = create<SessionStore>()(
       },
     }),
     {
-      name: "sessions",
+      name: "ZustandSessions",
       onRehydrateStorage: (state) => {
         console.log("onRehydrateStorage1", state)
         return (state) => {

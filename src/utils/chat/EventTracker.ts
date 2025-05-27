@@ -4,6 +4,7 @@ import {MessageType} from "@/pages/chats/message/Message"
 const events = new Map<string, Map<string, MessageType>>()
 
 export const addEvent = (sessionId: string, event: MessageType) => {
+  console.log("addEvent", sessionId, event)
   const sessionEvents = events.get(sessionId) || new Map<string, MessageType>()
   sessionEvents.set(event.id, event)
   events.set(sessionId, sessionEvents)
