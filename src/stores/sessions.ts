@@ -94,6 +94,8 @@ const store = create<SessionStore>()(
           .then((res) => console.log("published", res))
           .catch((e) => console.warn("Error publishing event:", e))
         addSession(session, invite.inviter)
+        const newSessions = getSessions()
+        set({sessions: Array.from(newSessions.keys())})
       },
     }),
     {
