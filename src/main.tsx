@@ -68,11 +68,15 @@ useSettingsStore.subscribe((state) => {
 })
 
 const attachListeners = () => {
-  const {invites} = useInvitesStore.getState()
-  const {sessions} = useSessionsStore.getState()
+  try {
+    const {invites} = useInvitesStore.getState()
+    const {sessions} = useSessionsStore.getState()
 
-  setupInviteListeners(invites)
-  setupSessionListeners(sessions)
+    setupInviteListeners(invites)
+    setupSessionListeners(sessions)
+  } catch (e) {
+    console.error("Error attaching listeners", e)
+  }
 }
 
 function waitForHydration<T extends {persist: any}>(store: T) {
@@ -85,6 +89,5 @@ await Promise.all([
   waitForHydration(useInvitesStore),
   waitForHydration(useSessionsStore),
 ]).then(() => {
-  console.log("All stores hydrated")
   attachListeners()
 })

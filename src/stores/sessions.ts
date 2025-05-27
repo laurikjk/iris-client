@@ -154,20 +154,6 @@ const store = create<SessionStore>()(
     }),
     {
       name: "sessions",
-      onRehydrateStorage: (state) => {
-        console.log("onRehydrateStorage1", state)
-        return (state) => {
-          Array.from(state?.sessions || []).forEach(([sessionId, session]) => {
-            session.onEvent((event) => {
-              const newEvents = new Map(store.getState().events)
-              const newMessages = new Map(newEvents.get(sessionId) || new Map())
-              newMessages.set(event.id, event)
-              newEvents.set(sessionId, newMessages)
-              store.setState({events: newEvents})
-            })
-          })
-        }
-      },
       storage: storage,
     }
   )

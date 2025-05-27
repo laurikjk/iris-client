@@ -1,6 +1,5 @@
 import {persist, PersistStorage, StorageValue} from "zustand/middleware"
 import {Invite} from "nostr-double-ratchet/src"
-import {setupInviteListeners} from "./sessions"
 import {useUserStore} from "./user"
 import {create} from "zustand"
 
