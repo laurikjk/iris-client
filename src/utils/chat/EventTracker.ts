@@ -31,6 +31,6 @@ export const loadEvents = () => {
       sessionEvents.set(messageId, message)
     })
     events.set(sessionId, sessionEvents)
-    console.log("loaded event", sessionId, sessionEvents)
   })
+  console.log("loaded events", events)
 }

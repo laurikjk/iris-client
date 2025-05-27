@@ -1,6 +1,7 @@
 import ChatContainer from "../components/ChatContainer"
 import {getSessions} from "@/utils/chat/SessionTracker"
 import {SortedMap} from "@/utils/SortedMap/SortedMap"
+import {getEvents} from "@/utils/chat/EventTracker"
 import {comparator} from "../utils/messageGrouping"
 import PrivateChatHeader from "./PrivateChatHeader"
 import {useSessionsStore} from "@/stores/sessions"
@@ -30,7 +31,7 @@ const Chat = ({id}: {id: string}) => {
       return
     }
 
-    const sessionEvents = events[id]
+    const sessionEvents = getEvents().get(id)
     if (!sessionEvents) return
 
     const newMessages = new SortedMap<string, MessageType>([], comparator)
@@ -47,7 +48,7 @@ const Chat = ({id}: {id: string}) => {
     })
 
     setMessages(newMessages)
-  }, [id, session, events])
+  }, [id, sessionIds, events])
 
   useEffect(() => {
     if (!id) return
@@ -72,9 +73,11 @@ const Chat = ({id}: {id: string}) => {
     // }
   }, [id])
 
-  if (!id || !session) {
-    return null
+  if (!session) {
+    return <div className="p-4 text-center">Chat session not found</div>
   }
+
+  console.log("MESSAGES", messages)
 
   return (
     <>
