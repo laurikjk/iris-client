@@ -18,11 +18,11 @@ const storeEvents = () => {
     sessionId,
     Array.from(messages.entries()),
   ])
-  localStorage.setItem("events", JSON.stringify(serializedEvents))
+  localStorage.setItem("EventTracker", JSON.stringify(serializedEvents))
 }
 
 export const loadEvents = () => {
-  const serializedEvents = localStorage.getItem("events")
+  const serializedEvents = localStorage.getItem("EventTracker")
   if (!serializedEvents) return
   const parsedEvents = JSON.parse(serializedEvents)
   parsedEvents.forEach(([sessionId, messages]: [string, [string, MessageType][]]) => {
