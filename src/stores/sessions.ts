@@ -128,6 +128,36 @@ const store = create<SessionStore>()(
       name: "sessions",
       onRehydrateStorage: (state) => {
         return (state) => {
+          const privateKey = useUserStore.getState().privateKey
+          if (!privateKey) {
+            throw new Error("No private key")
+          }
+          const decrypt = privateKey
+            ? hexToBytes(privateKey)
+            : async (cipherText: string, pubkey: string) => {
+                if (window.nostr?.nip44) {
+                  return window.nostr.nip44.decrypt(cipherText, pubkey)
+                }
+                throw new Error("No nostr extension or private key")
+              }
+          Array.from(state?.invites || []).forEach(([id, invite]) => {
+            invite.listen(decrypt, subscribe, (session, identity) => {
+              console.log("HYDRATION SET ON EVENT", event)
+              const sessionId = `${identity}:${session.name}`
+              const newSessions = new Map(store.getState().sessions)
+              newSessions.set(sessionId, session)
+              store.setState({sessions: newSessions})
+              session.onEvent((event) => {
+                console.log("HYDRATION SET ON EVENT", event)
+                const newEvents = new Map(store.getState().events)
+                const newMessages = new Map(newEvents.get(sessionId) || new Map())
+                newMessages.set(event.id, event)
+                newEvents.set(sessionId, newMessages)
+                store.setState({events: newEvents})
+                store.setState({sessions: new Map(store.getState().sessions)})
+              })
+            })
+          })
           Array.from(state?.sessions || []).forEach(([sessionId, session]) => {
             session.onEvent((event) => {
               console.log("HYDRATION SET ON EVENT", event)
