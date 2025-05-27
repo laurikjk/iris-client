@@ -1,5 +1,6 @@
 import {persist, PersistStorage, StorageValue} from "zustand/middleware"
 import {Invite} from "nostr-double-ratchet/src"
+import {useSessionsStore} from "./sessions"
 import {useUserStore} from "./user"
 import {create} from "zustand"
 
@@ -50,6 +51,14 @@ const store = create<InviteStore>()(
   persist(
     (set, get) => ({
       invites: new Map(),
+      addInvite: (invite: Invite) => {
+        const id = crypto.randomUUID()
+        const currentInvites = get().invites
+        const newInvites = new Map(currentInvites)
+        newInvites.set(id, invite)
+        useSessionsStore.getState().listenToInvite(invite)
+        set({invites: newInvites})
+      },
       createInvite: (label: string) => {
         const myPubKey = useUserStore.getState().publicKey
         if (!myPubKey) {
