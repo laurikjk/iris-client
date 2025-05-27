@@ -10,6 +10,7 @@ interface InviteStoreState {
 
 interface InviteStoreActions {
   createInvite: (label: string) => void
+  addInvite: (invite: Invite) => void
 }
 
 type InviteStore = InviteStoreState & InviteStoreActions
@@ -65,12 +66,7 @@ const store = create<InviteStore>()(
           throw new Error("No public key")
         }
         const invite = Invite.createNew(myPubKey, label)
-        const id = crypto.randomUUID()
-        const currentInvites = get().invites
-
-        const newInvites = new Map(currentInvites)
-        newInvites.set(id, invite)
-        set({invites: newInvites})
+        get().addInvite(invite)
       },
     }),
     {
