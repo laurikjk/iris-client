@@ -109,6 +109,8 @@ const store = create<SessionStore>()(
           newMessages.set(event.id, event)
           newEvents.set(sessionId, newMessages)
           set({events: newEvents})
+          // make sure we persist session state
+          set({sessions: new Map(get().sessions)})
         })
         set({sessions: newSessions})
       },
