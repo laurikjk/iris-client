@@ -1,12 +1,8 @@
-import {
-  Invite,
-  Session,
-  serializeSessionState,
-  deserializeSessionState,
-  CHAT_MESSAGE_KIND,
-} from "nostr-double-ratchet/src"
 import {persist, PersistStorage, StorageValue} from "zustand/middleware"
+import {getSessions, loadSessions} from "@/utils/chat/SessionTracker"
+import {Invite, CHAT_MESSAGE_KIND} from "nostr-double-ratchet/src"
 import {MessageType} from "@/pages/chats/message/Message"
+import {addSession} from "@/utils/chat/SessionTracker"
 import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {Filter, VerifiedEvent} from "nostr-tools"
 import {hexToBytes} from "@noble/hashes/utils"
@@ -16,7 +12,7 @@ import {ndk} from "@/utils/ndk"
 import {create} from "zustand"
 
 interface SessionStoreState {
-  sessions: Map<string, Session>
+  sessions: string[]
   // sessionId -> messageId -> message
   events: Map<string, Map<string, MessageType>>
 }
@@ -38,12 +34,7 @@ const storage: PersistStorage<SessionStoreState> = {
     const value = localStorage.getItem(name)
     if (!value) return null
     const parsed = JSON.parse(value)
-    const sessions = new Map<string, Session>(
-      parsed.sessions.map(([id, serializedState]: [string, any]) => [
-        id,
-        new Session(subscribe, deserializeSessionState(serializedState)),
-      ])
-    )
+    const sessions = parsed.sessions
     const events = new Map<string, Map<string, MessageType>>(
       parsed.events?.map(([sessionId, messages]: [string, [string, MessageType][]]) => [
         sessionId,
@@ -58,9 +49,7 @@ const storage: PersistStorage<SessionStoreState> = {
     }
   },
   setItem: (name: string, value: StorageValue<SessionStoreState>): void => {
-    const serializedSessions = Array.from(value.state.sessions.entries()).map(
-      ([id, session]) => [id, serializeSessionState(session.state)]
-    )
+    const serializedSessions = value.state.sessions
     const serializedEvents = Array.from(value.state.events.entries()).map(
       ([sessionId, messages]) => [sessionId, Array.from(messages.entries())]
     )
@@ -80,10 +69,10 @@ const storage: PersistStorage<SessionStoreState> = {
 const store = create<SessionStore>()(
   persist(
     (set, get) => ({
-      sessions: new Map(),
+      sessions: [],
       events: new Map(),
       sendMessage: async (sessionId: string, content: string, replyingToId?: string) => {
-        const session = get().sessions.get(sessionId)
+        const session = getSessions().get(sessionId)
         if (!session) {
           throw new Error("Session not found")
         }
@@ -111,7 +100,7 @@ const store = create<SessionStore>()(
         newEvents.set(sessionId, newMessages)
         set({events: newEvents})
         // make sure we persist session state
-        set({sessions: new Map(get().sessions)})
+        set({sessions: Array.from(getSessions().keys())})
       },
       acceptInvite: async (url: string) => {
         const invite = Invite.fromUrl(url)
@@ -138,17 +127,7 @@ const store = create<SessionStore>()(
           .publish()
           .then((res) => console.log("published", res))
           .catch((e) => console.warn("Error publishing event:", e))
-        const sessionId = `${invite.inviter}:${session.name}`
-        const newSessions = new Map(get().sessions)
-        newSessions.set(sessionId, session)
-        session.onEvent((event) => {
-          const newEvents = new Map(get().events)
-          const newMessages = new Map(newEvents.get(sessionId) || new Map())
-          newMessages.set(event.id, event)
-          newEvents.set(sessionId, newMessages)
-          set({events: newEvents})
-        })
-        set({sessions: newSessions})
+        addSession(session, invite.inviter)
       },
     }),
     {
@@ -156,16 +135,7 @@ const store = create<SessionStore>()(
       onRehydrateStorage: (state) => {
         console.log("onRehydrateStorage1", state)
         return (state) => {
-          Array.from(state?.sessions || []).forEach(([sessionId, session]) => {
-            session.onEvent((event) => {
-              const newEvents = new Map(store.getState().events)
-              const newMessages = new Map(newEvents.get(sessionId) || new Map())
-              newMessages.set(event.id, event)
-              newEvents.set(sessionId, newMessages)
-              store.setState({events: newEvents})
-              store.setState({sessions: new Map(store.getState().sessions)})
-            })
-          })
+          loadSessions()
         }
       },
       storage: storage,
@@ -179,39 +149,38 @@ useInvitesStore.subscribe((state) => {
     console.warn("No private key, skipping invite listening")
     return
   }
-  state.invites.forEach((invite) => {
-    // const decrypt = privateKey
-    //   ? hexToBytes(privateKey)
-    //   : async (cipherText: string, pubkey: string) => {
-    //       if (window.nostr?.nip44) {
-    //         try {
-    //           const result = await window.nostr.nip44.decrypt(pubkey, cipherText)
-    //           if (!result || typeof result !== "string") {
-    //             throw new Error("Failed to decrypt")
-    //           }
-    //           return result
-    //         } catch (error) {
-    //           console.error("NIP-44 decryption failed:", error)
-    //           throw new Error("Failed to decrypt message")
-    //         }
-    //       }
-    //       throw new Error("No nostr extension or private key")
-    //     }
-    // invite.listen(decrypt, subscribe, (session, identity) => {
-    //   console.log("listened a session from invite", session)
-    //   const sessionId = `${identity}:${session.name}`
-    //   const newSessions = new Map(store.getState().sessions)
-    //   newSessions.set(sessionId, session)
-    //   session.onEvent((event) => {
-    //     const newEvents = new Map(store.getState().events)
-    //     const newMessages = new Map(newEvents.get(sessionId) || new Map())
-    //     newMessages.set(event.id, event)
-    //     newEvents.set(sessionId, newMessages)
-    //     store.setState({events: newEvents})
-    //   })
-    //   store.setState({sessions: newSessions})
-    // })
-  })
+  //state.invites.forEach((invite) => {
+  //const decrypt = privateKey
+  //  ? hexToBytes(privateKey)
+  //  : async (cipherText: string, pubkey: string) => {
+  //      if (window.nostr?.nip44) {
+  //        try {
+  //          const result = await window.nostr.nip44.decrypt(pubkey, cipherText)
+  //          if (!result || typeof result !== "string") {
+  //            throw new Error("Failed to decrypt")
+  //          }
+  //          return result
+  //        } catch (error) {
+  //          console.error("NIP-44 decryption failed:", error)
+  //          throw new Error("Failed to decrypt message")
+  //        }
+  //      }
+  //      throw new Error("No nostr extension or private key")
+  //    }
+  //invite.listen(decrypt, subscribe, (session, identity) => {
+  //  console.log("listened a session from invite", session)
+  //  const sessionId = `${identity}:${session.name}`
+  //  const newSessions = new Map(store.getState().sessions)
+  //  newSessions.set(sessionId, session)
+  //  session.onEvent((event) => {
+  //    const newEvents = new Map(store.getState().events)
+  //    const newMessages = new Map(newEvents.get(sessionId) || new Map())
+  //    newMessages.set(event.id, event)
+  //    newEvents.set(sessionId, newMessages)
+  //    store.setState({events: newEvents})
+  //  })
+  //  store.setState({sessions: newSessions})
+  //})
 })
 
 export const useSessionsStore = store

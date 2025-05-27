@@ -1,8 +1,10 @@
 import ChatContainer from "../components/ChatContainer"
+import {getSessions} from "@/utils/chat/SessionTracker"
 import {SortedMap} from "@/utils/SortedMap/SortedMap"
 import {comparator} from "../utils/messageGrouping"
 import PrivateChatHeader from "./PrivateChatHeader"
 import {useSessionsStore} from "@/stores/sessions"
+import {Session} from "nostr-double-ratchet/src"
 import MessageForm from "../message/MessageForm"
 import {MessageType} from "../message/Message"
 import {useEffect, useState} from "react"
@@ -11,11 +13,17 @@ const Chat = ({id}: {id: string}) => {
   const [messages, setMessages] = useState(
     new SortedMap<string, MessageType>([], comparator)
   )
-  const {sessions, events} = useSessionsStore()
+  const {sessions: sessionIds, events} = useSessionsStore()
+  const [sessions, setSessions] = useState<Map<string, Session>>(new Map())
   const [haveReply, setHaveReply] = useState(false)
   const [haveSent, setHaveSent] = useState(false)
   const [replyingTo, setReplyingTo] = useState<MessageType | undefined>(undefined)
-  const session = sessions.get(id)!
+  const session = sessions.get(id)
+
+  useEffect(() => {
+    const newSessions = getSessions()
+    setSessions(newSessions)
+  }, [sessionIds])
 
   useEffect(() => {
     if (!(id && session)) {

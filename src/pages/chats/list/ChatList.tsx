@@ -1,7 +1,9 @@
 import {CHANNEL_CREATE, CHANNEL_MESSAGE} from "../utils/constants"
 import {PublicChatContext} from "../public/PublicChatContext"
+import {getSessions} from "@/utils/chat/SessionTracker"
 import Header from "@/shared/components/header/Header"
 import {useSessionsStore} from "@/stores/sessions"
+import {Session} from "nostr-double-ratchet/src"
 import {useUserStore} from "@/stores/user"
 import ChatListItem from "./ChatListItem"
 import {useState, useEffect} from "react"
@@ -20,13 +22,6 @@ type LatestMessage = {
   created_at: number
 }
 
-type Session = {
-  deleted?: boolean
-  lastSeen?: number
-  events?: Record<string, unknown>
-  latest?: LatestMessage
-}
-
 type PublicChat = {
   id: string
   name: string
@@ -37,7 +32,8 @@ type PublicChat = {
 }
 
 const ChatList = ({className}: ChatListProps) => {
-  const {sessions} = useSessionsStore()
+  const {sessions: sessionIds} = useSessionsStore()
+  const [sessions, setSessions] = useState<Map<string, Session>>(new Map())
   //const [sessions, setSessions] = useState({} as Record<string, Session>)
   const [publicChats, setPublicChats] = useState<PublicChat[]>([])
   const [publicChatTimestamps, setPublicChatTimestamps] = useState<
@@ -45,6 +41,11 @@ const ChatList = ({className}: ChatListProps) => {
   >({})
 
   const myPubKey = useUserStore((state) => state.publicKey)
+
+  useEffect(() => {
+    const newSessions = getSessions()
+    setSessions(newSessions)
+  }, [sessionIds])
 
   // Fetch public chats where the user has sent messages
   useEffect(() => {

@@ -3,6 +3,7 @@ import {
   serializeSessionState,
   deserializeSessionState,
 } from "nostr-double-ratchet/src"
+import {useSessionsStore} from "@/stores/sessions"
 import {Filter, VerifiedEvent} from "nostr-tools"
 import {ndk} from "@/utils/ndk"
 
@@ -35,6 +36,7 @@ export const addSession = (session: Session, identity?: string) => {
   const sessionId = `${identity}:${session.name}`
   sessions.set(sessionId, session)
   listen()
+  storeSessions()
 }
 
 const serializeSessions = () => {
