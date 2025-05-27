@@ -7,6 +7,7 @@ import {
 import {useState, useRef, useEffect, ChangeEvent, FormEvent} from "react"
 import QRCodeButton from "@/shared/components/user/QRCodeButton"
 import {UserRow} from "@/shared/components/user/UserRow"
+import {getInvites} from "@/utils/chat/InviteTracker"
 import {useSessionsStore} from "@/stores/sessions"
 import {RiInformationLine} from "@remixicon/react"
 import {getSessions} from "@/utils/chat/Sessions"
@@ -18,7 +19,8 @@ import {nip19} from "nostr-tools"
 
 const PrivateChatCreation = () => {
   const navigate = useNavigate()
-  const {invites, createInvite} = useInvitesStore()
+  const {invites: inviteIds, createInvite} = useInvitesStore()
+  const [invites, setInvites] = useState<Map<string, Invite>>(new Map())
   const {acceptInvite} = useSessionsStore()
   const [inviteInput, setInviteInput] = useState("")
   const [showPublicInfo, setShowPublicInfo] = useState(false)
@@ -29,6 +31,11 @@ const PrivateChatCreation = () => {
 
   const myPubKey = useUserStore((state) => state.publicKey)
   const myPrivKey = useUserStore((state) => state.privateKey)
+
+  useEffect(() => {
+    const invs = getInvites()
+    setInvites(invs)
+  }, [inviteIds])
 
   useEffect(() => {
     subscribeToDoubleRatchetUsers()

@@ -1,50 +1,39 @@
-import {createJSONStorage, persist} from "zustand/middleware"
-import {Invite} from "nostr-double-ratchet/src"
+import {addInvite, getInvites, storeInvites} from "@/utils/chat/InviteTracker"
+import {persist} from "zustand/middleware"
 import {useUserStore} from "./user"
 import {create} from "zustand"
-interface InviteStore {
-  invites: Map<string, Invite>
+interface InviteStoreState {
+  // store just the names
+  invites: Set<string>
+}
+
+interface InviteStoreActions {
   createInvite: (label: string) => void
 }
 
+type InviteStore = InviteStoreState & InviteStoreActions
+
 const store = create<InviteStore>()(
   persist(
-    (set, get) => ({
-      invites: new Map(),
+    (set) => ({
+      invites: new Set(),
       createInvite: (label: string) => {
         const myPubKey = useUserStore.getState().publicKey
-        if (!myPubKey) {
-          throw new Error("No public key")
-        }
-        const invite = Invite.createNew(myPubKey, label)
-        const id = crypto.randomUUID()
-        const currentInvites = get().invites
+        const myPrivKey = useUserStore.getState().privateKey
 
-        const newInvites = new Map(currentInvites)
-        newInvites.set(id, invite)
-        set({invites: newInvites})
+        if (!myPubKey || !myPrivKey) {
+          console.warn("No public key or private key")
+          return
+        }
+
+        addInvite(label, myPubKey, myPrivKey)
+        storeInvites()
+        const invites = new Set(getInvites().keys())
+        set({invites})
       },
     }),
     {
       name: "invites",
-      storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        invites: Array.from(state.invites.entries()).map(([id, invite]) => [
-          id,
-          invite.serialize(),
-        ]),
-      }),
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          const entries: [string, Invite][] = Array.from(state.invites).map(
-            ([id, serializedInvite]: [string, any]) => [
-              id,
-              Invite.deserialize(serializedInvite),
-            ]
-          )
-          state.invites = new Map(entries)
-        }
-      },
     }
   )
 )

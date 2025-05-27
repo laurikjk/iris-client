@@ -181,37 +181,37 @@ useInvitesStore.subscribe((state) => {
     return
   }
   state.invites.forEach((invite) => {
-    const decrypt = privateKey
-      ? hexToBytes(privateKey)
-      : async (cipherText: string, pubkey: string) => {
-          if (window.nostr?.nip44) {
-            try {
-              const result = await window.nostr.nip44.decrypt(pubkey, cipherText)
-              if (!result || typeof result !== "string") {
-                throw new Error("Failed to decrypt")
-              }
-              return result
-            } catch (error) {
-              console.error("NIP-44 decryption failed:", error)
-              throw new Error("Failed to decrypt message")
-            }
-          }
-          throw new Error("No nostr extension or private key")
-        }
-    invite.listen(decrypt, subscribe, (session, identity) => {
-      console.log("listened a session from invite", session)
-      const sessionId = `${identity}:${session.name}`
-      const newSessions = new Map(store.getState().sessions)
-      newSessions.set(sessionId, session)
-      session.onEvent((event) => {
-        const newEvents = new Map(store.getState().events)
-        const newMessages = new Map(newEvents.get(sessionId) || new Map())
-        newMessages.set(event.id, event)
-        newEvents.set(sessionId, newMessages)
-        store.setState({events: newEvents})
-      })
-      store.setState({sessions: newSessions})
-    })
+    // const decrypt = privateKey
+    //   ? hexToBytes(privateKey)
+    //   : async (cipherText: string, pubkey: string) => {
+    //       if (window.nostr?.nip44) {
+    //         try {
+    //           const result = await window.nostr.nip44.decrypt(pubkey, cipherText)
+    //           if (!result || typeof result !== "string") {
+    //             throw new Error("Failed to decrypt")
+    //           }
+    //           return result
+    //         } catch (error) {
+    //           console.error("NIP-44 decryption failed:", error)
+    //           throw new Error("Failed to decrypt message")
+    //         }
+    //       }
+    //       throw new Error("No nostr extension or private key")
+    //     }
+    // invite.listen(decrypt, subscribe, (session, identity) => {
+    //   console.log("listened a session from invite", session)
+    //   const sessionId = `${identity}:${session.name}`
+    //   const newSessions = new Map(store.getState().sessions)
+    //   newSessions.set(sessionId, session)
+    //   session.onEvent((event) => {
+    //     const newEvents = new Map(store.getState().events)
+    //     const newMessages = new Map(newEvents.get(sessionId) || new Map())
+    //     newMessages.set(event.id, event)
+    //     newEvents.set(sessionId, newMessages)
+    //     store.setState({events: newEvents})
+    //   })
+    //   store.setState({sessions: newSessions})
+    // })
   })
 })
 
