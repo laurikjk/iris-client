@@ -228,4 +228,19 @@ export const setupSessionListeners = (sessions: Map<string, Session>) => {
   })
 }
 
+useInvitesStore.subscribe((state, prevState) => {
+  const newIds = state.invites.keys()
+  const prevIds = prevState.invites.keys()
+  const newIdsSet = new Set(newIds)
+  const prevIdsSet = new Set(prevIds)
+  newIdsSet.forEach((id) => {
+    if (!prevIdsSet.has(id)) {
+      const invite = state.invites.get(id)
+      if (invite) {
+        setupInviteListeners(new Map([[id, invite]]))
+      }
+    }
+  })
+})
+
 export const useSessionsStore = store
