@@ -9,7 +9,7 @@ import {useEventsStore} from "@/stores/events"
 import {useEffect, useState} from "react"
 
 const Chat = ({id}: {id: string}) => {
-  const {sessions} = useSessionsStore()
+  const {sessions, updateLastSeen} = useSessionsStore()
   const {events} = useEventsStore()
   const [haveReply, setHaveReply] = useState(false)
   const [haveSent, setHaveSent] = useState(false)
@@ -36,26 +36,27 @@ const Chat = ({id}: {id: string}) => {
 
   useEffect(() => {
     if (!id) return
-    // localState.get("sessions").get(id).get("lastSeen").put(Date.now())
 
-    // const handleVisibilityChange = () => {
-    //   if (document.visibilityState === "visible") {
-    //     localState.get("sessions").get(id).get("lastSeen").put(Date.now())
-    //   }
-    // }
+    updateLastSeen(id)
 
-    // const handleFocus = () => {
-    //   localState.get("sessions").get(id).get("lastSeen").put(Date.now())
-    // }
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        updateLastSeen(id)
+      }
+    }
 
-    // document.addEventListener("visibilitychange", handleVisibilityChange)
-    // window.addEventListener("focus", handleFocus)
+    const handleFocus = () => {
+      updateLastSeen(id)
+    }
 
-    // return () => {
-    //   document.removeEventListener("visibilitychange", handleVisibilityChange)
-    //   window.removeEventListener("focus", handleFocus)
-    // }
-  }, [id])
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    window.addEventListener("focus", handleFocus)
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      window.removeEventListener("focus", handleFocus)
+    }
+  }, [id, updateLastSeen])
 
   if (!id || !session) {
     return null

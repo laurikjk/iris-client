@@ -18,6 +18,7 @@ import {create} from "zustand"
 interface SessionStoreState {
   invites: Map<string, Invite>
   sessions: Map<string, Session>
+  lastSeen: Map<string, number>
   // sessionId -> messageId -> message
   // events: Map<string, Map<string, MessageType>>
 }
@@ -29,6 +30,7 @@ interface SessionStoreActions {
   createInvite: (label: string) => void
   acceptInvite: (url: string) => Promise<void>
   sendMessage: (id: string, content: string, replyingToId?: string) => Promise<void>
+  updateLastSeen: (sessionId: string) => void
 }
 
 type SessionStore = SessionStoreState & SessionStoreActions
@@ -43,6 +45,7 @@ const store = create<SessionStore>()(
     (set, get) => ({
       invites: new Map(),
       sessions: new Map(),
+      lastSeen: new Map(),
       //events: new Map(),
       createInvite: (label: string) => {
         const myPubKey = useUserStore.getState().publicKey
@@ -133,6 +136,11 @@ const store = create<SessionStore>()(
         sessionListeners.set(sessionId, sessionUnsubscribe)
         set({sessions: newSessions})
       },
+      updateLastSeen: (sessionId: string) => {
+        const newLastSeen = new Map(get().lastSeen)
+        newLastSeen.set(sessionId, Date.now())
+        set({lastSeen: newLastSeen})
+      },
     }),
     {
       name: "sessions",
@@ -211,6 +219,7 @@ const store = create<SessionStore>()(
             const [id, session] = entry as [string, Session]
             return [id, serializeSessionState(session.state)]
           }),
+          lastSeen: Array.from(state.lastSeen.entries()),
           // events: Array.from(state.events.entries()).map((entry) => {
           //   const [sessionId, messages] = entry as [string, Map<string, MessageType>]
           //   return [
@@ -238,6 +247,7 @@ const store = create<SessionStore>()(
           ...currentState,
           invites: new Map(newInvites),
           sessions: new Map(newSessions),
+          lastSeen: new Map(persistedState.lastSeen || []),
           // events: new Map(
           //   persistedState.events.map((entry: [string, [string, MessageType][]]) => {
           //     const [sessionId, messages] = entry

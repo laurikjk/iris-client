@@ -10,6 +10,7 @@ import ProxyImg from "@/shared/components/ProxyImg"
 import {shouldHideAuthor} from "@/utils/visibility"
 import {Name} from "@/shared/components/user/Name"
 import {CHANNEL_MESSAGE} from "../utils/constants"
+import {useSessionsStore} from "@/stores/sessions"
 import {useLocation, NavLink} from "react-router"
 import {MessageType} from "../message/Message"
 import {useEventsStore} from "@/stores/events"
@@ -36,6 +37,7 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
   const [channelMetadata, setChannelMetadata] = useState<ChannelMetadata | null>(null)
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false)
   const {events} = useEventsStore()
+  const {lastSeen} = useSessionsStore()
 
   // Fetch channel metadata for public chats
   useEffect(() => {
@@ -57,7 +59,7 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
   }, [id, isPublic])
 
   const [_latestId, latest] = events.get(id)?.last() ?? []
-  const [lastSeen, setLastSeen] = useLocalState(`sessions/${id}/lastSeen`, 0)
+  const lastSeenTime = lastSeen.get(id) || 0
   const [deleted] = useLocalState(`sessions/${id}/deleted`, false)
 
   // Fetch latest message for public chats
@@ -141,7 +143,6 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
       to={isPublic ? `/chats/${id}` : "/chats/chat"}
       state={{id}}
       key={id}
-      onClick={() => setLastSeen(Date.now())}
       className={classNames("px-2 py-4 flex items-center border-b border-custom", {
         "bg-base-300": isActive,
         "hover:bg-base-300": !isActive,
@@ -196,17 +197,17 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
             {(() => {
               if (isPublic) {
                 if (!latestMessage?.created_at) return null
-                const hasUnread = latestMessage.created_at * 1000 > lastSeen
+                const hasUnread = latestMessage.created_at * 1000 > lastSeenTime
                 return (
-                  (!lastSeen || hasUnread) && (
+                  (!lastSeenTime || hasUnread) && (
                     <div className="indicator-item badge badge-primary badge-xs"></div>
                   )
                 )
               } else {
                 if (!latest?.created_at) return null
-                const hasUnread = getMillisecondTimestamp(latest) > lastSeen
+                const hasUnread = getMillisecondTimestamp(latest) > lastSeenTime
                 return (
-                  (!lastSeen || hasUnread) && (
+                  (!lastSeenTime || hasUnread) && (
                     <div className="indicator-item badge badge-primary badge-xs"></div>
                   )
                 )
