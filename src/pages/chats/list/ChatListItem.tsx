@@ -56,15 +56,7 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
     fetchMetadata()
   }, [id, isPublic])
 
-  useEffect(() => {
-    // TODO irisdb should have subscriptions work without this
-    if (!isPublic) {
-      localState.get(`sessions/${id}`).get("latest").put({})
-    }
-  }, [id, isPublic])
-
-  // const [latest] = useLocalState(`sessions/${id}/latest`, {} as MessageType)
-  const latest = events.get(id)?.values().next().value
+  const [_latestId, latest] = events.get(id)?.last() ?? []
   const [lastSeen, setLastSeen] = useLocalState(`sessions/${id}/lastSeen`, 0)
   const [deleted] = useLocalState(`sessions/${id}/deleted`, false)
 
@@ -186,7 +178,11 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
               {(isPublic ? latestMessage?.created_at : latest?.created_at) && (
                 <span className="text-sm text-base-content/70 ml-2">
                   <RelativeTime
-                    from={isPublic && latest?.created_at ? latest.created_at * 1000 : 100} // TODO: fix this
+                    from={
+                      isPublic && latest?.created_at
+                        ? latest.created_at * 1000
+                        : getMillisecondTimestamp(latest)
+                    }
                   />
                 </span>
               )}
