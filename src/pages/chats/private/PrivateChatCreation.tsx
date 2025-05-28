@@ -25,7 +25,6 @@ const PrivateChatCreation = () => {
   const labelInputRef = useRef<HTMLInputElement>(null)
 
   const myPubKey = useUserStore((state) => state.publicKey)
-  const myPrivKey = useUserStore((state) => state.privateKey)
 
   useEffect(() => {
     subscribeToDoubleRatchetUsers()
