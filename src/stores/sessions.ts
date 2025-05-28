@@ -30,6 +30,7 @@ interface SessionStoreActions {
   sendMessage: (id: string, content: string, replyingToId?: string) => Promise<void>
   updateLastSeen: (sessionId: string) => void
   deleteInvite: (id: string) => void
+  deleteSession: (id: string) => void
 }
 
 type SessionStore = SessionStoreState & SessionStoreActions
@@ -139,6 +140,17 @@ const store = create<SessionStore>()(
         const newLastSeen = new Map(get().lastSeen)
         newLastSeen.set(sessionId, Date.now())
         set({lastSeen: newLastSeen})
+      },
+      deleteSession: (sessionId: string) => {
+        const newSessions = new Map(get().sessions)
+        newSessions.delete(sessionId)
+        set({sessions: newSessions})
+        const unsubscribe = sessionListeners.get(sessionId)
+        if (unsubscribe) {
+          unsubscribe()
+          sessionListeners.delete(sessionId)
+        }
+        useEventsStore.getState().removeSession(sessionId)
       },
     }),
     {
