@@ -262,8 +262,8 @@ const PublicChat = () => {
       <PublicChatHeader channelId={id || ""} />
       <ChatContainer
         messages={messages}
-        session={session}
-        sessionId={id || ""}
+        session={session} // TODO: remove this when fixing reactions
+        sessionId={id || ""} // TODO: remove this when fixing reactions
         onReply={setReplyingTo}
         showAuthor={true}
         isPublicChat={true}
@@ -274,7 +274,6 @@ const PublicChat = () => {
       />
       {publicKey && (
         <MessageForm
-          session={session}
           id={id || ""}
           replyingTo={replyingTo}
           setReplyingTo={setReplyingTo}

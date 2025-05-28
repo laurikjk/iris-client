@@ -24,7 +24,7 @@ const Chat = ({id}: {id: string}) => {
     const sessionEvents = events.get(id)
     if (!sessionEvents) return
 
-    Array.from(sessionEvents.entries()).forEach(([messageId, message]) => {
+    Array.from(sessionEvents.entries()).forEach(([_messageId, message]) => {
       if (!haveReply && message.sender !== "user") {
         setHaveReply(true)
       }
@@ -73,12 +73,7 @@ const Chat = ({id}: {id: string}) => {
         sessionId={id}
         onReply={setReplyingTo}
       />
-      <MessageForm
-        session={session}
-        id={id}
-        replyingTo={replyingTo}
-        setReplyingTo={setReplyingTo}
-      />
+      <MessageForm id={id} replyingTo={replyingTo} setReplyingTo={setReplyingTo} />
     </>
   )
 }
