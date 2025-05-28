@@ -16,6 +16,7 @@ import Header from "@/shared/components/header/Header"
 import {Name} from "@/shared/components/user/Name.tsx"
 import useProfile from "@/shared/hooks/useProfile.ts"
 import Modal from "@/shared/components/ui/Modal.tsx"
+import {useSessionsStore} from "@/stores/sessions"
 import Icon from "@/shared/components/Icons/Icon"
 import {Filter, VerifiedEvent} from "nostr-tools"
 import {Invite} from "nostr-double-ratchet/src"
@@ -29,7 +30,7 @@ const ProfileHeader = ({pubKey}: {pubKey: string}) => {
     [pubKey]
   )
   const myPubKey = useUserStore((state) => state.publicKey)
-  const myPrivKey = useUserStore((state) => state.privateKey)
+
   const [showProfilePhotoModal, setShowProfilePhotoModal] = useState(false)
   const [showBannerModal, setShowBannerModal] = useState(false)
   const [invite, setInvite] = useState<Invite | undefined>(undefined)
@@ -102,7 +103,15 @@ const ProfileHeader = ({pubKey}: {pubKey: string}) => {
               {invite && myPubKey && (
                 <button
                   className="btn btn-circle btn-neutral"
-                  onClick={() => acceptInvite(invite, myPubKey, myPrivKey, navigate)}
+                  onClick={async () => {
+                    if (!invite) return
+                    const sessionId = await useSessionsStore
+                      .getState()
+                      .acceptInvite(invite.getUrl())
+                    navigate("/chats/chat", {
+                      state: {id: sessionId},
+                    })
+                  }}
                 >
                   <Icon name="mail-outline" className="w-6 h-6" />
                 </button>

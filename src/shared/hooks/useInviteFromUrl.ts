@@ -31,8 +31,8 @@ export const useInviteFromUrl = () => {
         const cleanUrl = `${window.location.origin}${location.pathname}${location.search}`
         window.history.replaceState({}, document.title, cleanUrl)
 
-        const invite = await useSessionsStore.getState().acceptInvite(fullUrl)
-        navigate("/chats/chat", {state: {id: `${invite.inviter}:${invite.label}`}})
+        const sessionId = await useSessionsStore.getState().acceptInvite(fullUrl)
+        navigate("/chats/chat", {state: {id: sessionId}})
       }
 
       acceptInviteFromUrl()

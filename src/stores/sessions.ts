@@ -26,7 +26,7 @@ const sessionListeners = new Map<string, () => void>()
 
 interface SessionStoreActions {
   createInvite: (label: string) => void
-  acceptInvite: (url: string) => Promise<Invite>
+  acceptInvite: (url: string) => Promise<string>
   sendMessage: (id: string, content: string, replyingToId?: string) => Promise<void>
   updateLastSeen: (sessionId: string) => void
   deleteInvite: (id: string) => void
@@ -97,7 +97,7 @@ const store = create<SessionStore>()(
         // make sure we persist session state
         set({sessions: new Map(get().sessions)})
       },
-      acceptInvite: async (url: string): Promise<Invite> => {
+      acceptInvite: async (url: string): Promise<string> => {
         const invite = Invite.fromUrl(url)
         const myPubKey = useUserStore.getState().publicKey
         if (!myPubKey) {
@@ -124,7 +124,7 @@ const store = create<SessionStore>()(
           .catch((e) => console.warn("Error publishing event:", e))
         const sessionId = `${invite.inviter}:${session.name}`
         if (sessionListeners.has(sessionId)) {
-          return invite
+          return sessionId
         }
         const newSessions = new Map(get().sessions)
         newSessions.set(sessionId, session)
@@ -135,7 +135,7 @@ const store = create<SessionStore>()(
         })
         sessionListeners.set(sessionId, sessionUnsubscribe)
         set({sessions: newSessions})
-        return invite
+        return sessionId
       },
       updateLastSeen: (sessionId: string) => {
         const newLastSeen = new Map(get().lastSeen)
