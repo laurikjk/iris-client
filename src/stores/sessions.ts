@@ -5,10 +5,10 @@ import {
   deserializeSessionState,
   CHAT_MESSAGE_KIND,
 } from "nostr-double-ratchet/src"
-import {Filter, VerifiedEvent, finalizeEvent} from "nostr-tools"
 import {createJSONStorage, persist} from "zustand/middleware"
 import {NDKEventFromRawEvent, RawEvent} from "@/utils/nostr"
 import {MessageType} from "@/pages/chats/message/Message"
+import {Filter, VerifiedEvent} from "nostr-tools"
 import {hexToBytes} from "@noble/hashes/utils"
 import {useEventsStore} from "./events"
 import {useUserStore} from "./user"
