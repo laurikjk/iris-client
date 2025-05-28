@@ -130,7 +130,6 @@ const ChatList = ({className}: ChatListProps) => {
   }, [myPubKey])
 
   // Combine private and public chats for display
-  console.log("sessions", Array.from(sessions))
   const allChats = Object.values(
     [
       ...Array.from(sessions)
@@ -176,8 +175,6 @@ const ChatList = ({className}: ChatListProps) => {
     // Sort in descending order (newest first)
     return bLatest - aLatest
   })
-
-  console.log("allChats", allChats)
 
   return (
     <PublicChatContext.Provider value={{setPublicChatTimestamps}}>
