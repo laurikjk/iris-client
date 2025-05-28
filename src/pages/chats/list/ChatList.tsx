@@ -1,7 +1,9 @@
 import {CHANNEL_CREATE, CHANNEL_MESSAGE} from "../utils/constants"
+import {getMillisecondTimestamp} from "nostr-double-ratchet/src"
 import {PublicChatContext} from "../public/PublicChatContext"
 import Header from "@/shared/components/header/Header"
 import {useSessionsStore} from "@/stores/sessions"
+import {useEventsStore} from "@/stores/events"
 import {useUserStore} from "@/stores/user"
 import ChatListItem from "./ChatListItem"
 import {useState, useEffect} from "react"
@@ -11,20 +13,6 @@ import {ndk} from "@/utils/ndk"
 
 interface ChatListProps {
   className?: string
-}
-
-type LatestMessage = {
-  content: string
-  id: string
-  sender: string
-  created_at: number
-}
-
-type Session = {
-  deleted?: boolean
-  lastSeen?: number
-  events?: Record<string, unknown>
-  latest?: LatestMessage
 }
 
 type PublicChat = {
@@ -38,7 +26,7 @@ type PublicChat = {
 
 const ChatList = ({className}: ChatListProps) => {
   const {sessions} = useSessionsStore()
-  //const [sessions, setSessions] = useState({} as Record<string, Session>)
+  const {events} = useEventsStore()
   const [publicChats, setPublicChats] = useState<PublicChat[]>([])
   const [publicChatTimestamps, setPublicChatTimestamps] = useState<
     Record<string, number>
@@ -159,8 +147,11 @@ const ChatList = ({className}: ChatListProps) => {
     if (a.isPublic) {
       aLatest = publicChatTimestamps[a.id] || 0
     } else {
-      //aLatest = sessions.get(a.id)?.latest?.created_at || 0
       aLatest = 0
+      const [, latest] = events.get(a.id)?.last() ?? []
+      if (latest) {
+        aLatest = getMillisecondTimestamp(latest)
+      }
     }
 
     // Get latest message time for chat B
@@ -168,8 +159,11 @@ const ChatList = ({className}: ChatListProps) => {
     if (b.isPublic) {
       bLatest = publicChatTimestamps[b.id] || 0
     } else {
-      //bLatest = sessions.get(b.id)?.latest?.created_at || 0
       bLatest = 0
+      const [, latest] = events.get(b.id)?.last() ?? []
+      if (latest) {
+        bLatest = getMillisecondTimestamp(latest)
+      }
     }
 
     // Sort in descending order (newest first)
