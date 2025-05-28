@@ -25,7 +25,8 @@ const inviteListeners = new Map<string, () => void>()
 const sessionListeners = new Map<string, () => void>()
 
 interface SessionStoreActions {
-  createInvite: (label: string) => void
+  createInvite: (label: string, inviteId?: string) => void
+  createDefaultInvites: () => void
   acceptInvite: (url: string) => Promise<string>
   sendMessage: (id: string, content: string, replyingToId?: string) => Promise<void>
   updateLastSeen: (sessionId: string) => void
@@ -46,6 +47,18 @@ const store = create<SessionStore>()(
       invites: new Map(),
       sessions: new Map(),
       lastSeen: new Map(),
+      createDefaultInvites: () => {
+        const myPubKey = useUserStore.getState().publicKey
+        if (!myPubKey) {
+          throw new Error("No public key")
+        }
+        if (!get().invites.has("public")) {
+          get().createInvite("Public Invite", "public")
+        }
+        if (!get().invites.has("private")) {
+          get().createInvite("Private Invite", "private")
+        }
+      },
       deleteInvite: (id: string) => {
         const currentInvites = get().invites
         const newInvites = new Map(currentInvites)
@@ -57,13 +70,13 @@ const store = create<SessionStore>()(
           inviteListeners.delete(id)
         }
       },
-      createInvite: (label: string) => {
+      createInvite: (label: string, inviteId?: string) => {
         const myPubKey = useUserStore.getState().publicKey
         if (!myPubKey) {
           throw new Error("No public key")
         }
         const invite = Invite.createNew(myPubKey, label)
-        const id = crypto.randomUUID()
+        const id = inviteId || crypto.randomUUID()
         const currentInvites = get().invites
 
         const newInvites = new Map(currentInvites)
@@ -203,6 +216,7 @@ const store = create<SessionStore>()(
           })
           sessionListeners.set(sessionId, sessionUnsubscribe)
         })
+        state?.createDefaultInvites()
       },
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => {
