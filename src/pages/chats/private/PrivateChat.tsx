@@ -1,4 +1,6 @@
 import ChatContainer from "../components/ChatContainer"
+import {SortedMap} from "@/utils/SortedMap/SortedMap"
+import {comparator} from "../utils/messageGrouping"
 import PrivateChatHeader from "./PrivateChatHeader"
 import {useSessionsStore} from "@/stores/sessions"
 import MessageForm from "../message/MessageForm"
@@ -59,11 +61,7 @@ const Chat = ({id}: {id: string}) => {
     return null
   }
 
-  const messages = events.get(id)
-
-  if (!messages) {
-    return <div>Loading...</div> // TODO: something else like an error?
-  }
+  const messages = events.get(id) ?? new SortedMap<string, MessageType>([], comparator)
 
   return (
     <>

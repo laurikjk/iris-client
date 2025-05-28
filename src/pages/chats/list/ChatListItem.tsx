@@ -14,7 +14,6 @@ import {useLocation, NavLink} from "react-router"
 import {useEventsStore} from "@/stores/events"
 import {RiEarthLine} from "@remixicon/react"
 import debounce from "lodash/debounce"
-import {localState} from "irisdb/src"
 import classNames from "classnames"
 import {ndk} from "@/utils/ndk"
 
@@ -181,7 +180,9 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
                     from={
                       isPublic && latest?.created_at
                         ? latest.created_at * 1000
-                        : getMillisecondTimestamp(latest)
+                        : latest
+                          ? getMillisecondTimestamp(latest)
+                          : 10 // TODO: what to do here?
                     }
                   />
                 </span>
