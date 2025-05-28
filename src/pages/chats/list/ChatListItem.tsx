@@ -11,6 +11,7 @@ import {shouldHideAuthor} from "@/utils/visibility"
 import {Name} from "@/shared/components/user/Name"
 import {CHANNEL_MESSAGE} from "../utils/constants"
 import {useLocation, NavLink} from "react-router"
+import {MessageType} from "../message/Message"
 import {useEventsStore} from "@/stores/events"
 import {RiEarthLine} from "@remixicon/react"
 import debounce from "lodash/debounce"
@@ -178,11 +179,9 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
                 <span className="text-sm text-base-content/70 ml-2">
                   <RelativeTime
                     from={
-                      isPublic && latest?.created_at
-                        ? latest.created_at * 1000
-                        : latest
-                          ? getMillisecondTimestamp(latest)
-                          : 10 // TODO: what to do here?
+                      isPublic && latestMessage?.created_at
+                        ? latestMessage.created_at * 1000
+                        : getMillisecondTimestamp(latest as MessageType) // TODO: we know it's not undefined, TS doesn't -> do this without type assertion
                     }
                   />
                 </span>
