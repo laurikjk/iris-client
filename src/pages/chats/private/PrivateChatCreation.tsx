@@ -9,7 +9,6 @@ import QRCodeButton from "@/shared/components/user/QRCodeButton"
 import {UserRow} from "@/shared/components/user/UserRow"
 import {useSessionsStore} from "@/stores/sessions"
 import {RiInformationLine} from "@remixicon/react"
-import {getSessions} from "@/utils/chat/Sessions"
 import {Invite} from "nostr-double-ratchet/src"
 import {useUserStore} from "@/stores/user"
 import {useNavigate} from "react-router"
@@ -17,7 +16,7 @@ import {nip19} from "nostr-tools"
 
 const PrivateChatCreation = () => {
   const navigate = useNavigate()
-  const {invites, acceptInvite, createInvite} = useSessionsStore()
+  const {invites, sessions, acceptInvite, createInvite} = useSessionsStore()
   const [inviteInput, setInviteInput] = useState("")
   const [showPublicInfo, setShowPublicInfo] = useState(false)
   const [searchInput, setSearchInput] = useState("")
@@ -30,7 +29,7 @@ const PrivateChatCreation = () => {
 
   useEffect(() => {
     subscribeToDoubleRatchetUsers()
-    if (getSessions().size === 0) {
+    if (sessions.size === 0) {
       navigate("/chats/new", {replace: true})
     }
 

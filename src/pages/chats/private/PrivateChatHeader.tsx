@@ -5,8 +5,8 @@ import {UserRow} from "@/shared/components/user/UserRow"
 import Header from "@/shared/components/header/Header"
 import Dropdown from "@/shared/components/ui/Dropdown"
 import {SortedMap} from "@/utils/SortedMap/SortedMap"
+import {useSessionsStore} from "@/stores/sessions"
 import {Session} from "nostr-double-ratchet/src"
-import {getSession} from "@/utils/chat/Sessions"
 import {MessageType} from "../message/Message"
 import socialGraph from "@/utils/socialGraph"
 import {usePublicKey} from "@/stores/user"
@@ -24,6 +24,7 @@ const PrivateChatHeader = ({id, messages}: PrivateChatHeaderProps) => {
   const [session, setSession] = useState<Session | undefined>(undefined)
   const myPubKey = usePublicKey()
   const navigate = useNavigate()
+  const {sessions} = useSessionsStore()
 
   const handleDeleteChat = () => {
     if (id && confirm("Delete this chat?")) {
@@ -67,7 +68,7 @@ const PrivateChatHeader = ({id, messages}: PrivateChatHeaderProps) => {
   useEffect(() => {
     const fetchSession = async () => {
       if (id) {
-        const fetchedSession = await getSession(id)
+        const fetchedSession = sessions.get(id)
         setSession(fetchedSession)
       }
     }
