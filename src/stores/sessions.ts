@@ -5,10 +5,10 @@ import {
   deserializeSessionState,
   CHAT_MESSAGE_KIND,
 } from "nostr-double-ratchet/src"
+import {Filter, VerifiedEvent, finalizeEvent} from "nostr-tools"
 import {createJSONStorage, persist} from "zustand/middleware"
+import {NDKEventFromRawEvent, RawEvent} from "@/utils/nostr"
 import {MessageType} from "@/pages/chats/message/Message"
-import {NDKEventFromRawEvent} from "@/utils/nostr"
-import {Filter, VerifiedEvent} from "nostr-tools"
 import {hexToBytes} from "@noble/hashes/utils"
 import {useEventsStore} from "./events"
 import {useUserStore} from "./user"
@@ -54,6 +54,16 @@ const store = create<SessionStore>()(
         }
         if (!get().invites.has("public")) {
           get().createInvite("Public Invite", "public")
+          const myPrivKey = useUserStore.getState().privateKey
+          const invite = get().invites.get("public")
+          if (!invite || !myPrivKey) {
+            return
+          }
+          const event = invite.getEvent() as RawEvent
+          NDKEventFromRawEvent(event)
+            .publish()
+            .then((res) => console.log("published public invite", res))
+            .catch((e) => console.warn("Error publishing public invite:", e))
         }
         if (!get().invites.has("private")) {
           get().createInvite("Private Invite", "private")
