@@ -65,7 +65,8 @@ const PrivateChatCreation = () => {
     }
 
     try {
-      acceptInvite(input)
+      const sessionId = await acceptInvite(input)
+      navigate("/chats/chat", {state: {id: sessionId}})
     } catch (error) {
       console.error("Invalid invite link:", error)
     }
