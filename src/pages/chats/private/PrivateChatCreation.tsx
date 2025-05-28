@@ -16,7 +16,7 @@ import {nip19} from "nostr-tools"
 
 const PrivateChatCreation = () => {
   const navigate = useNavigate()
-  const {invites, sessions, acceptInvite, createInvite} = useSessionsStore()
+  const {invites, sessions, acceptInvite, createInvite, deleteInvite} = useSessionsStore()
   const [inviteInput, setInviteInput] = useState("")
   const [showPublicInfo, setShowPublicInfo] = useState(false)
   const [searchInput, setSearchInput] = useState("")
@@ -75,10 +75,6 @@ const PrivateChatCreation = () => {
     e.preventDefault()
     const label = labelInputRef.current?.value.trim() || "New Invite Link"
     createInvite(label)
-  }
-
-  const deleteInvite = (id: string) => {
-    return
   }
 
   const onScanSuccess = (data: string) => {

@@ -29,6 +29,7 @@ interface SessionStoreActions {
   acceptInvite: (url: string) => Promise<void>
   sendMessage: (id: string, content: string, replyingToId?: string) => Promise<void>
   updateLastSeen: (sessionId: string) => void
+  deleteInvite: (id: string) => void
 }
 
 type SessionStore = SessionStoreState & SessionStoreActions
@@ -44,6 +45,17 @@ const store = create<SessionStore>()(
       invites: new Map(),
       sessions: new Map(),
       lastSeen: new Map(),
+      deleteInvite: (id: string) => {
+        const currentInvites = get().invites
+        const newInvites = new Map(currentInvites)
+        newInvites.delete(id)
+        set({invites: newInvites})
+        const unsubscribe = inviteListeners.get(id)
+        if (unsubscribe) {
+          unsubscribe()
+          inviteListeners.delete(id)
+        }
+      },
       createInvite: (label: string) => {
         const myPubKey = useUserStore.getState().publicKey
         if (!myPubKey) {
