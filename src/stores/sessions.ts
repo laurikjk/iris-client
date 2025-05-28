@@ -19,8 +19,6 @@ interface SessionStoreState {
   invites: Map<string, Invite>
   sessions: Map<string, Session>
   lastSeen: Map<string, number>
-  // sessionId -> messageId -> message
-  // events: Map<string, Map<string, MessageType>>
 }
 
 const inviteListeners = new Map<string, () => void>()
@@ -46,7 +44,6 @@ const store = create<SessionStore>()(
       invites: new Map(),
       sessions: new Map(),
       lastSeen: new Map(),
-      //events: new Map(),
       createInvite: (label: string) => {
         const myPubKey = useUserStore.getState().publicKey
         if (!myPubKey) {
@@ -78,16 +75,11 @@ const store = create<SessionStore>()(
           .publish()
           .then((res) => console.log("published", res))
           .catch((e) => console.warn("Error publishing event:", e))
-        // const newEvents = new Map(get().events)
-        // const newMessages = new Map(newEvents.get(sessionId) || new Map())
         const message: MessageType = {
           ...innerEvent,
           sender: "user",
           reactions: {},
         }
-        // newMessages.set(innerEvent.id, message)
-        // newEvents.set(sessionId, newMessages)
-        // set({events: newEvents})
         useEventsStore.getState().upsert(sessionId, innerEvent.id, message)
         // make sure we persist session state
         set({sessions: new Map(get().sessions)})
@@ -124,11 +116,6 @@ const store = create<SessionStore>()(
         const newSessions = new Map(get().sessions)
         newSessions.set(sessionId, session)
         const sessionUnsubscribe = session.onEvent((event) => {
-          // const newEvents = new Map(get().events)
-          // const newMessages = new Map(newEvents.get(sessionId) || new Map())
-          // newMessages.set(event.id, event)
-          // newEvents.set(sessionId, newMessages)
-          // set({events: newEvents})
           useEventsStore.getState().upsert(sessionId, event.id, event)
           // make sure we persist session state
           set({sessions: new Map(get().sessions)})
@@ -144,70 +131,54 @@ const store = create<SessionStore>()(
     }),
     {
       name: "sessions",
-      onRehydrateStorage: (state) => {
-        return (state) => {
-          const privateKey = useUserStore.getState().privateKey
-          if (!privateKey) {
-            throw new Error("No private key")
-          }
-          const decrypt = privateKey
-            ? hexToBytes(privateKey)
-            : async (cipherText: string, pubkey: string) => {
-                if (window.nostr?.nip44) {
-                  return window.nostr.nip44.decrypt(cipherText, pubkey)
-                }
-                throw new Error("No nostr extension or private key")
-              }
-          Array.from(state?.invites || []).forEach(([id, invite]) => {
-            if (inviteListeners.has(id)) {
-              return
-            }
-            const inviteUnsubscribe = invite.listen(
-              decrypt,
-              subscribe,
-              (session, identity) => {
-                console.log("HYDRATION SET ON EVENT", event)
-                const sessionId = `${identity}:${session.name}`
-                if (sessionListeners.has(sessionId)) {
-                  return
-                }
-                const newSessions = new Map(store.getState().sessions)
-                newSessions.set(sessionId, session)
-                store.setState({sessions: newSessions})
-                const sessionUnsubscribe = session.onEvent((event) => {
-                  console.log("HYDRATION SET ON EVENT", event)
-                  // const newEvents = new Map(store.getState().events)
-                  // const newMessages = new Map(newEvents.get(sessionId) || new Map())
-                  // newMessages.set(event.id, event)
-                  // newEvents.set(sessionId, newMessages)
-                  // store.setState({events: newEvents})
-                  useEventsStore.getState().upsert(sessionId, event.id, event)
-                  store.setState({sessions: new Map(store.getState().sessions)})
-                })
-                sessionListeners.set(sessionId, sessionUnsubscribe)
-              }
-            )
-            inviteListeners.set(id, inviteUnsubscribe)
-          })
-          Array.from(state?.sessions || []).forEach(([sessionId, session]) => {
-            if (sessionListeners.has(sessionId)) {
-              return
-            }
-            const sessionUnsubscribe = session.onEvent((event) => {
-              console.log("HYDRATION SET ON EVENT", event)
-              // const newEvents = new Map(store.getState().events)
-              // const newMessages = new Map(newEvents.get(sessionId) || new Map())
-              // newMessages.set(event.id, event)
-              // newEvents.set(sessionId, newMessages)
-              // store.setState({events: newEvents})
-              useEventsStore.getState().upsert(sessionId, event.id, event)
-              store.setState({sessions: new Map(store.getState().sessions)})
-            })
-            sessionListeners.set(sessionId, sessionUnsubscribe)
-          })
+      onRehydrateStorage: () => (state) => {
+        const privateKey = useUserStore.getState().privateKey
+        if (!privateKey) {
+          throw new Error("No private key")
         }
+        const decrypt = privateKey
+          ? hexToBytes(privateKey)
+          : async (cipherText: string, pubkey: string) => {
+              if (window.nostr?.nip44) {
+                return window.nostr.nip44.decrypt(cipherText, pubkey)
+              }
+              throw new Error("No nostr extension or private key")
+            }
+        Array.from(state?.invites || []).forEach(([id, invite]) => {
+          if (inviteListeners.has(id)) {
+            return
+          }
+          const inviteUnsubscribe = invite.listen(
+            decrypt,
+            subscribe,
+            (session, identity) => {
+              const sessionId = `${identity}:${session.name}`
+              if (sessionListeners.has(sessionId)) {
+                return
+              }
+              const newSessions = new Map(store.getState().sessions)
+              newSessions.set(sessionId, session)
+              store.setState({sessions: newSessions})
+              const sessionUnsubscribe = session.onEvent((event) => {
+                useEventsStore.getState().upsert(sessionId, event.id, event)
+                store.setState({sessions: new Map(store.getState().sessions)})
+              })
+              sessionListeners.set(sessionId, sessionUnsubscribe)
+            }
+          )
+          inviteListeners.set(id, inviteUnsubscribe)
+        })
+        Array.from(state?.sessions || []).forEach(([sessionId, session]) => {
+          if (sessionListeners.has(sessionId)) {
+            return
+          }
+          const sessionUnsubscribe = session.onEvent((event) => {
+            useEventsStore.getState().upsert(sessionId, event.id, event)
+            store.setState({sessions: new Map(store.getState().sessions)})
+          })
+          sessionListeners.set(sessionId, sessionUnsubscribe)
+        })
       },
-      //storage: storage,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => {
         return {
@@ -220,16 +191,6 @@ const store = create<SessionStore>()(
             return [id, serializeSessionState(session.state)]
           }),
           lastSeen: Array.from(state.lastSeen.entries()),
-          // events: Array.from(state.events.entries()).map((entry) => {
-          //   const [sessionId, messages] = entry as [string, Map<string, MessageType>]
-          //   return [
-          //     sessionId,
-          //     Array.from(messages.entries()).map(([messageId, message]) => [
-          //       messageId,
-          //       message,
-          //     ]),
-          //   ]
-          // }),
         }
       },
       merge: (persistedState: any, currentState: SessionStore) => {
@@ -248,15 +209,6 @@ const store = create<SessionStore>()(
           invites: new Map(newInvites),
           sessions: new Map(newSessions),
           lastSeen: new Map(persistedState.lastSeen || []),
-          // events: new Map(
-          //   persistedState.events.map((entry: [string, [string, MessageType][]]) => {
-          //     const [sessionId, messages] = entry
-          //     return [
-          //       sessionId,
-          //       new Map(messages.map(([messageId, message]) => [messageId, message])),
-          //     ]
-          //   })
-          // ),
         }
       },
     }
