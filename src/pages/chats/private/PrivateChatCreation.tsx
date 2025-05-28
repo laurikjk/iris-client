@@ -79,7 +79,8 @@ const PrivateChatCreation = () => {
   }
 
   const onScanSuccess = (data: string) => {
-    acceptInvite(data)
+    const sessionId = acceptInvite(data)
+    navigate("/chats/chat", {state: {id: sessionId}})
   }
 
   if (!myPubKey) {
