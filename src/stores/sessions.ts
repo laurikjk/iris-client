@@ -21,6 +21,9 @@ interface SessionStoreState {
   events: Map<string, Map<string, MessageType>>
 }
 
+const inviteListeners = new Map<string, () => void>()
+const sessionListeners = new Map<string, () => void>()
+
 interface SessionStoreActions {
   createInvite: (label: string) => void
   acceptInvite: (url: string) => Promise<void>
@@ -110,9 +113,12 @@ const store = create<SessionStore>()(
           .then((res) => console.log("published", res))
           .catch((e) => console.warn("Error publishing event:", e))
         const sessionId = `${invite.inviter}:${session.name}`
+        if (sessionListeners.has(sessionId)) {
+          return
+        }
         const newSessions = new Map(get().sessions)
         newSessions.set(sessionId, session)
-        session.onEvent((event) => {
+        const sessionUnsubscribe = session.onEvent((event) => {
           const newEvents = new Map(get().events)
           const newMessages = new Map(newEvents.get(sessionId) || new Map())
           newMessages.set(event.id, event)
@@ -121,6 +127,7 @@ const store = create<SessionStore>()(
           // make sure we persist session state
           set({sessions: new Map(get().sessions)})
         })
+        sessionListeners.set(sessionId, sessionUnsubscribe)
         set({sessions: newSessions})
       },
     }),
@@ -141,25 +148,40 @@ const store = create<SessionStore>()(
                 throw new Error("No nostr extension or private key")
               }
           Array.from(state?.invites || []).forEach(([id, invite]) => {
-            invite.listen(decrypt, subscribe, (session, identity) => {
-              console.log("HYDRATION SET ON EVENT", event)
-              const sessionId = `${identity}:${session.name}`
-              const newSessions = new Map(store.getState().sessions)
-              newSessions.set(sessionId, session)
-              store.setState({sessions: newSessions})
-              session.onEvent((event) => {
+            if (inviteListeners.has(id)) {
+              return
+            }
+            const inviteUnsubscribe = invite.listen(
+              decrypt,
+              subscribe,
+              (session, identity) => {
                 console.log("HYDRATION SET ON EVENT", event)
-                const newEvents = new Map(store.getState().events)
-                const newMessages = new Map(newEvents.get(sessionId) || new Map())
-                newMessages.set(event.id, event)
-                newEvents.set(sessionId, newMessages)
-                store.setState({events: newEvents})
-                store.setState({sessions: new Map(store.getState().sessions)})
-              })
-            })
+                const sessionId = `${identity}:${session.name}`
+                if (sessionListeners.has(sessionId)) {
+                  return
+                }
+                const newSessions = new Map(store.getState().sessions)
+                newSessions.set(sessionId, session)
+                store.setState({sessions: newSessions})
+                const sessionUnsubscribe = session.onEvent((event) => {
+                  console.log("HYDRATION SET ON EVENT", event)
+                  const newEvents = new Map(store.getState().events)
+                  const newMessages = new Map(newEvents.get(sessionId) || new Map())
+                  newMessages.set(event.id, event)
+                  newEvents.set(sessionId, newMessages)
+                  store.setState({events: newEvents})
+                  store.setState({sessions: new Map(store.getState().sessions)})
+                })
+                sessionListeners.set(sessionId, sessionUnsubscribe)
+              }
+            )
+            inviteListeners.set(id, inviteUnsubscribe)
           })
           Array.from(state?.sessions || []).forEach(([sessionId, session]) => {
-            session.onEvent((event) => {
+            if (sessionListeners.has(sessionId)) {
+              return
+            }
+            const sessionUnsubscribe = session.onEvent((event) => {
               console.log("HYDRATION SET ON EVENT", event)
               const newEvents = new Map(store.getState().events)
               const newMessages = new Map(newEvents.get(sessionId) || new Map())
@@ -168,6 +190,7 @@ const store = create<SessionStore>()(
               store.setState({events: newEvents})
               store.setState({sessions: new Map(store.getState().sessions)})
             })
+            sessionListeners.set(sessionId, sessionUnsubscribe)
           })
         }
       },
