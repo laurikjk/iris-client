@@ -30,7 +30,6 @@ export const useEventsStore = create<EventsStore>()(
         existingMsgs.set(messageId, message)
         all.set(sessionId, existingMsgs)
         set({events: all})
-        console.log("upsert", sessionId, messageId, message, all)
       },
       removeSession: (sessionId) => {
         const all = new Map(get().events)
