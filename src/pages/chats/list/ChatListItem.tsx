@@ -1,7 +1,7 @@
 import {ConnectionStatus} from "@/shared/components/connection/ConnectionStatus"
 import {fetchChannelMetadata, ChannelMetadata} from "../utils/channelMetadata"
-import {getMillisecondTimestamp, Rumor} from "nostr-double-ratchet/src"
 import RelativeTime from "@/shared/components/event/RelativeTime"
+import {getMillisecondTimestamp} from "nostr-double-ratchet/src"
 import {PublicChatContext} from "../public/PublicChatContext"
 import {useLocalState} from "irisdb-hooks/src/useLocalState"
 import {Avatar} from "@/shared/components/user/Avatar"

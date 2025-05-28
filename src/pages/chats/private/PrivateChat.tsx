@@ -1,17 +1,12 @@
 import ChatContainer from "../components/ChatContainer"
-import {SortedMap} from "@/utils/SortedMap/SortedMap"
-import {comparator} from "../utils/messageGrouping"
 import PrivateChatHeader from "./PrivateChatHeader"
 import {useSessionsStore} from "@/stores/sessions"
 import MessageForm from "../message/MessageForm"
-import {useEventsStore} from "@/stores/events"
 import {MessageType} from "../message/Message"
+import {useEventsStore} from "@/stores/events"
 import {useEffect, useState} from "react"
 
 const Chat = ({id}: {id: string}) => {
-  const [messages, setMessages] = useState(
-    new SortedMap<string, MessageType>([], comparator)
-  )
   const {sessions} = useSessionsStore()
   const {events} = useEventsStore()
   const [haveReply, setHaveReply] = useState(false)
@@ -27,19 +22,14 @@ const Chat = ({id}: {id: string}) => {
     const sessionEvents = events.get(id)
     if (!sessionEvents) return
 
-    const newMessages = new SortedMap<string, MessageType>([], comparator)
-
-    sessionEvents.forEach((message, messageId) => {
+    Array.from(sessionEvents.entries()).forEach(([messageId, message]) => {
       if (!haveReply && message.sender !== "user") {
         setHaveReply(true)
       }
       if (!haveSent && message.sender === "user") {
         setHaveSent(true)
       }
-      newMessages.set(messageId, message)
     })
-
-    setMessages(newMessages)
   }, [id, session, events])
 
   useEffect(() => {
@@ -67,6 +57,12 @@ const Chat = ({id}: {id: string}) => {
 
   if (!id || !session) {
     return null
+  }
+
+  const messages = events.get(id)
+
+  if (!messages) {
+    return <div>Loading...</div> // TODO: something else like an error?
   }
 
   return (
