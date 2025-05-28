@@ -1,7 +1,7 @@
 import {ConnectionStatus} from "@/shared/components/connection/ConnectionStatus"
 import {fetchChannelMetadata, ChannelMetadata} from "../utils/channelMetadata"
+import {getMillisecondTimestamp, Rumor} from "nostr-double-ratchet/src"
 import RelativeTime from "@/shared/components/event/RelativeTime"
-import {getMillisecondTimestamp} from "nostr-double-ratchet/src"
 import {PublicChatContext} from "../public/PublicChatContext"
 import {useLocalState} from "irisdb-hooks/src/useLocalState"
 import {Avatar} from "@/shared/components/user/Avatar"
@@ -11,7 +11,7 @@ import {shouldHideAuthor} from "@/utils/visibility"
 import {Name} from "@/shared/components/user/Name"
 import {CHANNEL_MESSAGE} from "../utils/constants"
 import {useLocation, NavLink} from "react-router"
-import {MessageType} from "../message/Message"
+import {useEventsStore} from "@/stores/events"
 import {RiEarthLine} from "@remixicon/react"
 import debounce from "lodash/debounce"
 import {localState} from "irisdb/src"
@@ -35,6 +35,7 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
   const [showPlaceholder, setShowPlaceholder] = useState(false)
   const [channelMetadata, setChannelMetadata] = useState<ChannelMetadata | null>(null)
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false)
+  const {events} = useEventsStore()
 
   // Fetch channel metadata for public chats
   useEffect(() => {
@@ -62,7 +63,8 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
     }
   }, [id, isPublic])
 
-  const [latest] = useLocalState(`sessions/${id}/latest`, {} as MessageType)
+  // const [latest] = useLocalState(`sessions/${id}/latest`, {} as MessageType)
+  const latest = events.get(id)?.values().next().value
   const [lastSeen, setLastSeen] = useLocalState(`sessions/${id}/lastSeen`, 0)
   const [deleted] = useLocalState(`sessions/${id}/deleted`, false)
 
@@ -184,11 +186,7 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
               {(isPublic ? latestMessage?.created_at : latest?.created_at) && (
                 <span className="text-sm text-base-content/70 ml-2">
                   <RelativeTime
-                    from={
-                      isPublic && latestMessage?.created_at
-                        ? latestMessage.created_at * 1000
-                        : getMillisecondTimestamp(latest)
-                    }
+                    from={isPublic && latest?.created_at ? latest.created_at * 1000 : 100} // TODO: fix this
                   />
                 </span>
               )}

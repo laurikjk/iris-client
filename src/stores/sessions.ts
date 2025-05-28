@@ -10,6 +10,7 @@ import {MessageType} from "@/pages/chats/message/Message"
 import {NDKEventFromRawEvent} from "@/utils/nostr"
 import {Filter, VerifiedEvent} from "nostr-tools"
 import {hexToBytes} from "@noble/hashes/utils"
+import {useEventsStore} from "./events"
 import {useUserStore} from "./user"
 import {ndk} from "@/utils/ndk"
 import {create} from "zustand"
@@ -18,7 +19,7 @@ interface SessionStoreState {
   invites: Map<string, Invite>
   sessions: Map<string, Session>
   // sessionId -> messageId -> message
-  events: Map<string, Map<string, MessageType>>
+  // events: Map<string, Map<string, MessageType>>
 }
 
 const inviteListeners = new Map<string, () => void>()
@@ -42,7 +43,7 @@ const store = create<SessionStore>()(
     (set, get) => ({
       invites: new Map(),
       sessions: new Map(),
-      events: new Map(),
+      //events: new Map(),
       createInvite: (label: string) => {
         const myPubKey = useUserStore.getState().publicKey
         if (!myPubKey) {
@@ -74,16 +75,17 @@ const store = create<SessionStore>()(
           .publish()
           .then((res) => console.log("published", res))
           .catch((e) => console.warn("Error publishing event:", e))
-        const newEvents = new Map(get().events)
-        const newMessages = new Map(newEvents.get(sessionId) || new Map())
+        // const newEvents = new Map(get().events)
+        // const newMessages = new Map(newEvents.get(sessionId) || new Map())
         const message: MessageType = {
           ...innerEvent,
           sender: "user",
           reactions: {},
         }
-        newMessages.set(innerEvent.id, message)
-        newEvents.set(sessionId, newMessages)
-        set({events: newEvents})
+        // newMessages.set(innerEvent.id, message)
+        // newEvents.set(sessionId, newMessages)
+        // set({events: newEvents})
+        useEventsStore.getState().upsert(sessionId, innerEvent.id, message)
         // make sure we persist session state
         set({sessions: new Map(get().sessions)})
       },
@@ -119,11 +121,12 @@ const store = create<SessionStore>()(
         const newSessions = new Map(get().sessions)
         newSessions.set(sessionId, session)
         const sessionUnsubscribe = session.onEvent((event) => {
-          const newEvents = new Map(get().events)
-          const newMessages = new Map(newEvents.get(sessionId) || new Map())
-          newMessages.set(event.id, event)
-          newEvents.set(sessionId, newMessages)
-          set({events: newEvents})
+          // const newEvents = new Map(get().events)
+          // const newMessages = new Map(newEvents.get(sessionId) || new Map())
+          // newMessages.set(event.id, event)
+          // newEvents.set(sessionId, newMessages)
+          // set({events: newEvents})
+          useEventsStore.getState().upsert(sessionId, event.id, event)
           // make sure we persist session state
           set({sessions: new Map(get().sessions)})
         })
@@ -165,11 +168,12 @@ const store = create<SessionStore>()(
                 store.setState({sessions: newSessions})
                 const sessionUnsubscribe = session.onEvent((event) => {
                   console.log("HYDRATION SET ON EVENT", event)
-                  const newEvents = new Map(store.getState().events)
-                  const newMessages = new Map(newEvents.get(sessionId) || new Map())
-                  newMessages.set(event.id, event)
-                  newEvents.set(sessionId, newMessages)
-                  store.setState({events: newEvents})
+                  // const newEvents = new Map(store.getState().events)
+                  // const newMessages = new Map(newEvents.get(sessionId) || new Map())
+                  // newMessages.set(event.id, event)
+                  // newEvents.set(sessionId, newMessages)
+                  // store.setState({events: newEvents})
+                  useEventsStore.getState().upsert(sessionId, event.id, event)
                   store.setState({sessions: new Map(store.getState().sessions)})
                 })
                 sessionListeners.set(sessionId, sessionUnsubscribe)
@@ -183,11 +187,12 @@ const store = create<SessionStore>()(
             }
             const sessionUnsubscribe = session.onEvent((event) => {
               console.log("HYDRATION SET ON EVENT", event)
-              const newEvents = new Map(store.getState().events)
-              const newMessages = new Map(newEvents.get(sessionId) || new Map())
-              newMessages.set(event.id, event)
-              newEvents.set(sessionId, newMessages)
-              store.setState({events: newEvents})
+              // const newEvents = new Map(store.getState().events)
+              // const newMessages = new Map(newEvents.get(sessionId) || new Map())
+              // newMessages.set(event.id, event)
+              // newEvents.set(sessionId, newMessages)
+              // store.setState({events: newEvents})
+              useEventsStore.getState().upsert(sessionId, event.id, event)
               store.setState({sessions: new Map(store.getState().sessions)})
             })
             sessionListeners.set(sessionId, sessionUnsubscribe)
@@ -206,16 +211,16 @@ const store = create<SessionStore>()(
             const [id, session] = entry as [string, Session]
             return [id, serializeSessionState(session.state)]
           }),
-          events: Array.from(state.events.entries()).map((entry) => {
-            const [sessionId, messages] = entry as [string, Map<string, MessageType>]
-            return [
-              sessionId,
-              Array.from(messages.entries()).map(([messageId, message]) => [
-                messageId,
-                message,
-              ]),
-            ]
-          }),
+          // events: Array.from(state.events.entries()).map((entry) => {
+          //   const [sessionId, messages] = entry as [string, Map<string, MessageType>]
+          //   return [
+          //     sessionId,
+          //     Array.from(messages.entries()).map(([messageId, message]) => [
+          //       messageId,
+          //       message,
+          //     ]),
+          //   ]
+          // }),
         }
       },
       merge: (persistedState: any, currentState: SessionStore) => {
@@ -233,15 +238,15 @@ const store = create<SessionStore>()(
           ...currentState,
           invites: new Map(newInvites),
           sessions: new Map(newSessions),
-          events: new Map(
-            persistedState.events.map((entry: [string, [string, MessageType][]]) => {
-              const [sessionId, messages] = entry
-              return [
-                sessionId,
-                new Map(messages.map(([messageId, message]) => [messageId, message])),
-              ]
-            })
-          ),
+          // events: new Map(
+          //   persistedState.events.map((entry: [string, [string, MessageType][]]) => {
+          //     const [sessionId, messages] = entry
+          //     return [
+          //       sessionId,
+          //       new Map(messages.map(([messageId, message]) => [messageId, message])),
+          //     ]
+          //   })
+          // ),
         }
       },
     }

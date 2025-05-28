@@ -4,6 +4,7 @@ import {comparator} from "../utils/messageGrouping"
 import PrivateChatHeader from "./PrivateChatHeader"
 import {useSessionsStore} from "@/stores/sessions"
 import MessageForm from "../message/MessageForm"
+import {useEventsStore} from "@/stores/events"
 import {MessageType} from "../message/Message"
 import {useEffect, useState} from "react"
 
@@ -11,7 +12,8 @@ const Chat = ({id}: {id: string}) => {
   const [messages, setMessages] = useState(
     new SortedMap<string, MessageType>([], comparator)
   )
-  const {sessions, events} = useSessionsStore()
+  const {sessions} = useSessionsStore()
+  const {events} = useEventsStore()
   const [haveReply, setHaveReply] = useState(false)
   const [haveSent, setHaveSent] = useState(false)
   const [replyingTo, setReplyingTo] = useState<MessageType | undefined>(undefined)
