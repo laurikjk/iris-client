@@ -16,7 +16,14 @@ import {nip19} from "nostr-tools"
 
 const PrivateChatCreation = () => {
   const navigate = useNavigate()
-  const {invites, sessions, acceptInvite, createInvite, deleteInvite} = useSessionsStore()
+  const {
+    invites,
+    sessions,
+    acceptInvite,
+    createInvite,
+    deleteInvite,
+    createDefaultInvites,
+  } = useSessionsStore()
   const [inviteInput, setInviteInput] = useState("")
   const [showPublicInfo, setShowPublicInfo] = useState(false)
   const [searchInput, setSearchInput] = useState("")
@@ -25,6 +32,10 @@ const PrivateChatCreation = () => {
   const labelInputRef = useRef<HTMLInputElement>(null)
 
   const myPubKey = useUserStore((state) => state.publicKey)
+
+  useEffect(() => {
+    createDefaultInvites()
+  }, [createDefaultInvites])
 
   useEffect(() => {
     subscribeToDoubleRatchetUsers()
