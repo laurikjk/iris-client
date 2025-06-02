@@ -116,7 +116,7 @@ const store = create<SessionStore>()(
           sender: "user",
           reactions: {},
         }
-        useEventsStore.getState().upsert(sessionId, innerEvent.id, message)
+        useEventsStore.getState().upsert(sessionId, message)
         // make sure we persist session state
         set({sessions: new Map(get().sessions)})
       },
@@ -152,12 +152,13 @@ const store = create<SessionStore>()(
         const newSessions = new Map(get().sessions)
         newSessions.set(sessionId, session)
         const sessionUnsubscribe = session.onEvent((event) => {
-          useEventsStore.getState().upsert(sessionId, event.id, event)
+          useEventsStore.getState().upsert(sessionId, event)
           // make sure we persist session state
           set({sessions: new Map(get().sessions)})
         })
         sessionListeners.set(sessionId, sessionUnsubscribe)
         set({sessions: newSessions})
+        console.log("set new sessions", get().sessions)
         return sessionId
       },
       updateLastSeen: (sessionId: string) => {
@@ -208,7 +209,7 @@ const store = create<SessionStore>()(
               newSessions.set(sessionId, session)
               store.setState({sessions: newSessions})
               const sessionUnsubscribe = session.onEvent((event) => {
-                useEventsStore.getState().upsert(sessionId, event.id, event)
+                useEventsStore.getState().upsert(sessionId, event)
                 store.setState({sessions: new Map(store.getState().sessions)})
               })
               sessionListeners.set(sessionId, sessionUnsubscribe)
@@ -221,7 +222,7 @@ const store = create<SessionStore>()(
             return
           }
           const sessionUnsubscribe = session.onEvent((event) => {
-            useEventsStore.getState().upsert(sessionId, event.id, event)
+            useEventsStore.getState().upsert(sessionId, event)
             store.setState({sessions: new Map(store.getState().sessions)})
           })
           sessionListeners.set(sessionId, sessionUnsubscribe)

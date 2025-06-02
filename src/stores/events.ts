@@ -1,70 +1,63 @@
 import {comparator} from "@/pages/chats/utils/messageGrouping"
-import {persist, createJSONStorage} from "zustand/middleware"
-import {MessageType} from "@/pages/chats/message/Message"
+import type {MessageType} from "@/pages/chats/message/Message"
+import * as messageRepository from "@/utils/messageRepository"
 import {SortedMap} from "@/utils/SortedMap/SortedMap"
-import localforage from "localforage"
 import {create} from "zustand"
+
+const addToMap = (
+  store: Map<string, SortedMap<string, MessageType>>,
+  sessionId: string,
+  message: MessageType
+) => {
+  const sessionEventMap =
+    store.get(sessionId) || new SortedMap<string, MessageType>([], comparator)
+  sessionEventMap.set(message.id, message)
+  store.set(sessionId, sessionEventMap)
+  return store
+}
 
 interface EventsStoreState {
   events: Map<string, SortedMap<string, MessageType>>
 }
 
 interface EventsStoreActions {
-  upsert: (sessionId: string, messageId: string, message: MessageType) => void
-  removeSession: (sessionId: string) => void
+  upsert: (sessionId: string, message: MessageType) => Promise<void>
+  removeSession: (sessionId: string) => Promise<void>
   clear: () => Promise<void>
 }
 
 type EventsStore = EventsStoreState & EventsStoreActions
 
-const lf = localforage.createInstance({name: "nostr-chat", storeName: "events"})
+export const useEventsStore = create<EventsStore>((set) => {
+  const rehydration = messageRepository
+    .loadAll()
+    .then((data) => set({events: data}))
+    .catch(console.error)
+  return {
+    events: new Map(),
 
-export const useEventsStore = create<EventsStore>()(
-  persist(
-    (set, get) => ({
-      events: new Map(),
-      upsert: (sessionId, messageId, message) => {
-        const all = new Map(get().events)
-        const existingMsgs =
-          all.get(sessionId) || new SortedMap<string, MessageType>([], comparator)
-        existingMsgs.set(messageId, message)
-        all.set(sessionId, existingMsgs)
-        set({events: all})
-      },
-      removeSession: (sessionId) => {
-        const all = new Map(get().events)
-        all.delete(sessionId)
-        set({events: all})
-      },
-      clear: async () => {
-        await lf.removeItem("events-v1")
-        set({events: new Map()})
-      },
-    }),
-    {
-      name: "events-v1",
-      storage: createJSONStorage(() => lf),
-      partialize: (state) => ({
-        // Map → Array → JSON → localforage TODO: separate entries for all messages
-        events: Array.from(state.events.entries()).map(([sid, msgs]) => [
-          sid,
-          Array.from(msgs.entries()),
-        ]),
-      }),
-      merge: (persisted: any, current) => ({
-        ...current,
-        events: new Map(
-          (persisted?.events ?? []).map(
-            ([sid, msgs]: [string, [string, MessageType][]]) => [
-              sid,
-              new SortedMap<string, MessageType>(
-                msgs.map(([messageId, message]) => [messageId, message]),
-                comparator
-              ),
-            ]
-          )
-        ),
-      }),
-    }
-  )
-)
+    upsert: async (sessionId, message) => {
+      await rehydration
+      await messageRepository.save(sessionId, message)
+      set((state) => ({
+        events: addToMap(new Map(state.events), sessionId, message),
+      }))
+    },
+
+    removeSession: async (sessionId) => {
+      await rehydration
+      await messageRepository.deleteBySession(sessionId)
+      set((state) => {
+        const events = new Map(state.events)
+        events.delete(sessionId)
+        return {events}
+      })
+    },
+
+    clear: async () => {
+      await rehydration
+      await messageRepository.clearAll()
+      set({events: new Map()})
+    },
+  }
+})
