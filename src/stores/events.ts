@@ -5,15 +5,15 @@ import {SortedMap} from "@/utils/SortedMap/SortedMap"
 import {create} from "zustand"
 
 const addToMap = (
-  store: Map<string, SortedMap<string, MessageType>>,
+  sessionEventMap: Map<string, SortedMap<string, MessageType>>,
   sessionId: string,
   message: MessageType
 ) => {
-  const sessionEventMap =
-    store.get(sessionId) || new SortedMap<string, MessageType>([], comparator)
-  sessionEventMap.set(message.id, message)
-  store.set(sessionId, sessionEventMap)
-  return store
+  const eventMap =
+    sessionEventMap.get(sessionId) || new SortedMap<string, MessageType>([], comparator)
+  eventMap.set(message.id, message)
+  sessionEventMap.set(sessionId, eventMap)
+  return sessionEventMap
 }
 
 interface EventsStoreState {
