@@ -82,8 +82,12 @@ const store = create<SessionStore>()(
       },
       createInvite: (label: string, inviteId?: string) => {
         const myPubKey = useUserStore.getState().publicKey
+        const myPrivKey = useUserStore.getState().privateKey
         if (!myPubKey) {
           throw new Error("No public key")
+        }
+        if (!myPrivKey) {
+          throw new Error("No private key")
         }
         const invite = Invite.createNew(myPubKey, label)
         const id = inviteId || crypto.randomUUID()
@@ -91,6 +95,29 @@ const store = create<SessionStore>()(
 
         const newInvites = new Map(currentInvites)
         newInvites.set(id, invite)
+        const decrypt = myPrivKey
+          ? hexToBytes(myPrivKey)
+          : async (cipherText: string, pubkey: string) => {
+              if (window.nostr?.nip44) {
+                return window.nostr.nip44.decrypt(cipherText, pubkey)
+              }
+              throw new Error("No nostr extension or private key")
+            }
+        const unsubscribe = invite.listen(decrypt, subscribe, (session, identity) => {
+          const sessionId = `${identity}:${session.name}`
+          if (sessionListeners.has(sessionId)) {
+            return
+          }
+          const newSessions = new Map(store.getState().sessions)
+          newSessions.set(sessionId, session)
+          store.setState({sessions: newSessions})
+          const sessionUnsubscribe = session.onEvent((event) => {
+            useEventsStore.getState().upsert(sessionId, event)
+            store.setState({sessions: new Map(store.getState().sessions)})
+          })
+          sessionListeners.set(sessionId, sessionUnsubscribe)
+        })
+        inviteListeners.set(id, unsubscribe)
         set({invites: newInvites})
       },
       sendMessage: async (sessionId: string, content: string, replyingToId?: string) => {
