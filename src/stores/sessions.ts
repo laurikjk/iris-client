@@ -86,9 +86,6 @@ const store = create<SessionStore>()(
         if (!myPubKey) {
           throw new Error("No public key")
         }
-        if (!myPrivKey) {
-          throw new Error("No private key")
-        }
         const invite = Invite.createNew(myPubKey, label)
         const id = inviteId || crypto.randomUUID()
         const currentInvites = get().invites
