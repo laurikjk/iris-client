@@ -1,3 +1,4 @@
+import * as db from "../../../utils/messageRepository.ts"
 import ChatContainer from "../components/ChatContainer"
 import {SortedMap} from "@/utils/SortedMap/SortedMap"
 import {comparator} from "../utils/messageGrouping"
@@ -5,12 +6,18 @@ import PrivateChatHeader from "./PrivateChatHeader"
 import {useSessionsStore} from "@/stores/sessions"
 import MessageForm from "../message/MessageForm"
 import {MessageType} from "../message/Message"
+import {useLiveQuery} from "dexie-react-hooks"
 import {useEventsStore} from "@/stores/events"
 import {useEffect, useState} from "react"
 
 const Chat = ({id}: {id: string}) => {
   const {sessions, updateLastSeen} = useSessionsStore()
-  const {events} = useEventsStore()
+  // skipping store
+  // const {events} = useEventsStore()
+  const events = useLiveQuery(async () => {
+    const sessionEventMap = await db.loadAll()
+    return sessionEventMap
+  })
   const [haveReply, setHaveReply] = useState(false)
   const [haveSent, setHaveSent] = useState(false)
   const [replyingTo, setReplyingTo] = useState<MessageType | undefined>(undefined)
@@ -21,7 +28,7 @@ const Chat = ({id}: {id: string}) => {
       return
     }
 
-    const sessionEvents = events.get(id)
+    const sessionEvents = events?.get(id)
     if (!sessionEvents) return
 
     Array.from(sessionEvents.entries()).forEach(([, message]) => {
@@ -62,7 +69,7 @@ const Chat = ({id}: {id: string}) => {
     return null
   }
 
-  const messages = events.get(id) ?? new SortedMap<string, MessageType>([], comparator)
+  const messages = events?.get(id) ?? new SortedMap<string, MessageType>([], comparator)
 
   return (
     <>
