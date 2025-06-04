@@ -148,17 +148,21 @@ const store = create<SessionStore>()(
             ["ms", Date.now().toString()],
           ],
         })
-        const e = NDKEventFromRawEvent(event)
-        await e
-          .publish()
-          .then((res) => console.log("published", res))
-          .catch((e) => console.warn("Error publishing event:", e))
         const message: MessageType = {
           ...innerEvent,
           sender: "user",
           reactions: {},
         }
+        // Optimistic update
         useEventsStore.getState().upsert(sessionId, message)
+        try {
+          const e = NDKEventFromRawEvent(event)
+          await e.publish()
+          console.log("published", event.id)
+        } catch (err) {
+          console.warn("Error publishing event:", err)
+          await useEventsStore.getState().removeMessage(sessionId, message.id)
+        }
         // make sure we persist session state
         set({sessions: new Map(get().sessions)})
       },
