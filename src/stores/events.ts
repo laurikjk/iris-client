@@ -2,6 +2,7 @@ import {comparator} from "@/pages/chats/utils/messageGrouping"
 import type {MessageType} from "@/pages/chats/message/Message"
 import * as messageRepository from "@/utils/messageRepository"
 import {SortedMap} from "@/utils/SortedMap/SortedMap"
+import {useUserStore} from "./user"
 import {create} from "zustand"
 
 const addToMap = (
@@ -29,6 +30,31 @@ interface EventsStoreActions {
 
 type EventsStore = EventsStoreState & EventsStoreActions
 
+const makeOrModifyMessage = async (sessionId: string, message: MessageType) => {
+  const isReaction = message.kind === 6
+  const eTag = message.tags.find(([key]) => key === "e")
+  if (isReaction && eTag) {
+    const [, messageId] = eTag
+    const oldMsg = await messageRepository.getById(messageId)
+
+    const pubKey =
+      message?.sender === "user"
+        ? useUserStore.getState().publicKey
+        : sessionId.split(":")[0]
+
+    if (oldMsg) {
+      return {
+        ...oldMsg,
+        reactions: {
+          ...oldMsg.reactions,
+          [pubKey]: message.content,
+        },
+      }
+    }
+  }
+  return message
+}
+
 export const useEventsStore = create<EventsStore>((set) => {
   const rehydration = messageRepository
     .loadAll()
@@ -37,8 +63,9 @@ export const useEventsStore = create<EventsStore>((set) => {
   return {
     events: new Map(),
 
-    upsert: async (sessionId, message) => {
+    upsert: async (sessionId, event) => {
       await rehydration
+      const message = await makeOrModifyMessage(sessionId, event)
       await messageRepository.save(sessionId, message)
       set((state) => ({
         events: addToMap(new Map(state.events), sessionId, message),
