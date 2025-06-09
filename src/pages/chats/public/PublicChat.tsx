@@ -5,7 +5,6 @@ import {shouldHideAuthor} from "@/utils/visibility"
 import {useNavigate, useParams} from "react-router"
 import {comparator} from "../utils/messageGrouping"
 import {useEffect, useState, useRef} from "react"
-import {Session} from "nostr-double-ratchet/src"
 import {NDKEvent} from "@nostr-dev-kit/ndk"
 import MessageForm from "../message/MessageForm"
 import {MessageType} from "../message/Message"
@@ -28,7 +27,6 @@ const PublicChat = () => {
   const [reactions, setReactions] = useState<Record<string, Record<string, string>>>({})
   const [replyingTo, setReplyingTo] = useState<MessageType>()
   const [error, setError] = useState<string | null>(null)
-  const [session] = useState<Session>({} as Session) // Dummy session for public chat
   const initialLoadDoneRef = useRef<boolean>(false)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [showNoMessages, setShowNoMessages] = useState(false)
@@ -254,6 +252,23 @@ const PublicChat = () => {
     )
   }
 
+  if (!id) {
+    return (
+      <>
+        <Helmet>
+          <title>Public Chat</title>
+        </Helmet>
+        <PublicChatHeader channelId={""} />
+        <div className="flex flex-col items-center justify-center h-full p-4">
+          <p className="text-error mb-4">Channel not found</p>
+          <button className="btn btn-primary" onClick={() => navigate("/chats")}>
+            Back to Chats
+          </button>
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
       <Helmet>
@@ -262,8 +277,7 @@ const PublicChat = () => {
       <PublicChatHeader channelId={id || ""} />
       <ChatContainer
         messages={messages}
-        session={session} // TODO: remove this when fixing reactions
-        sessionId={id || ""} // TODO: remove this when fixing reactions
+        sessionId={id}
         onReply={setReplyingTo}
         showAuthor={true}
         isPublicChat={true}
