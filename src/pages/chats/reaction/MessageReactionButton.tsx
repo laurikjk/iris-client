@@ -51,15 +51,12 @@ const MessageReactionButton = ({
         content: emoji.native,
         tags: [["e", messageId]],
       })
-      localState
-        .get("sessions")
-        .get(sessionId)
-        .get("events")
-        .get(messageId)
-        .get("reactions")
-        .get(myPubKey)
-        .put(emoji.native)
-      NDKEventFromRawEvent(event).publish()
+      NDKEventFromRawEvent(event)
+        .publish()
+        .then(() => {
+          console.log("success")
+        })
+        .catch((e) => console.warn(e))
     }
   }
 

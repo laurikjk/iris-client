@@ -108,6 +108,7 @@ const store = create<SessionStore>()(
           newSessions.set(sessionId, session)
           store.setState({sessions: newSessions})
           const sessionUnsubscribe = session.onEvent((event) => {
+            console.log("ON EVENT", event)
             useEventsStore.getState().upsert(sessionId, event)
             store.setState({sessions: new Map(store.getState().sessions)})
           })
@@ -175,6 +176,7 @@ const store = create<SessionStore>()(
         const newSessions = new Map(get().sessions)
         newSessions.set(sessionId, session)
         const sessionUnsubscribe = session.onEvent((event) => {
+          console.log("ON EVENT", event)
           useEventsStore.getState().upsert(sessionId, event)
           // make sure we persist session state
           set({sessions: new Map(get().sessions)})
@@ -229,6 +231,7 @@ const store = create<SessionStore>()(
               newSessions.set(sessionId, session)
               store.setState({sessions: newSessions})
               const sessionUnsubscribe = session.onEvent((event) => {
+                console.log("ON EVENT", event)
                 useEventsStore.getState().upsert(sessionId, event)
                 store.setState({sessions: new Map(store.getState().sessions)})
               })
@@ -242,6 +245,7 @@ const store = create<SessionStore>()(
             return
           }
           const sessionUnsubscribe = session.onEvent((event) => {
+            console.log("ON EVENT", event)
             useEventsStore.getState().upsert(sessionId, event)
             store.setState({sessions: new Map(store.getState().sessions)})
           })

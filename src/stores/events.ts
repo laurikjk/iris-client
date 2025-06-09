@@ -28,6 +28,25 @@ interface EventsStoreActions {
 
 type EventsStore = EventsStoreState & EventsStoreActions
 
+const makeMessage = async (message: MessageType) => {
+  const isReaction = message.kind === 6
+  const eTag = message.tags.find(([key]) => key === "e")
+  if (isReaction && eTag) {
+    const [, messageId] = eTag
+    const oldMsg = await messageRepository.getById(messageId)
+    if (oldMsg) {
+      return {
+        ...oldMsg,
+        reactions: {
+          ...oldMsg.reactions,
+          [message.pubkey]: message.content,
+        },
+      }
+    }
+  }
+  return message
+}
+
 export const useEventsStore = create<EventsStore>((set) => {
   const rehydration = messageRepository
     .loadAll()
@@ -36,8 +55,10 @@ export const useEventsStore = create<EventsStore>((set) => {
   return {
     events: new Map(),
 
-    upsert: async (sessionId, message) => {
+    upsert: async (sessionId, event) => {
       await rehydration
+      const message = await makeMessage(event)
+      console.log("made a message", message)
       await messageRepository.save(sessionId, message)
       set((state) => ({
         events: addToMap(new Map(state.events), sessionId, message),

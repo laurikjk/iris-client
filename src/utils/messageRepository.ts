@@ -42,3 +42,10 @@ export async function deleteBySession(sessionId: string): Promise<void> {
 export async function clearAll(): Promise<void> {
   await db.messages.clear()
 }
+
+export async function getById(messageId: string): Promise<MessageType | undefined> {
+  const msg = await db.messages.get(messageId)
+  if (!msg) return msg
+  const {session_id, ...event} = msg
+  return event
+}

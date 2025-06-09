@@ -6,6 +6,7 @@ import HyperText from "@/shared/components/HyperText"
 import {shouldHideAuthor} from "@/utils/visibility"
 import {Name} from "@/shared/components/user/Name"
 import {useMemo, useEffect, useState} from "react"
+import {useEventsStore} from "@/stores/events"
 import ReplyPreview from "./ReplyPreview"
 import classNames from "classnames"
 import {Link} from "react-router"
@@ -82,6 +83,7 @@ const Message = ({
   reactions: propReactions,
 }: MessageProps) => {
   const isUser = message.sender === "user"
+  const {events} = useEventsStore()
   const [localReactions, setLocalReactions] = useState<Record<string, string>>(
     propReactions || {}
   )
@@ -92,6 +94,14 @@ const Message = ({
 
   // Set up reaction subscription
   useEffect(() => {
+    if (session) {
+      const sessionEvents = events.get(sessionId)
+      const event = sessionEvents?.get(message.id)
+      if (event) {
+        setLocalReactions(event.reactions || {})
+      }
+      return
+    }
     const filter = {
       kinds: [7], // REACTION_KIND
       "#e": [message.id],
