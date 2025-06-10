@@ -60,6 +60,9 @@ const MessageReactionButton = ({
           </div>
         )}
         <div
+          data-testid="reaction-button"
+          role="button"
+          aria-label="Add reaction"
           className="p-2 text-base-content/50 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity flex-shrink-0"
           onClick={handleReactionClick}
         >
