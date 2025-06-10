@@ -5,6 +5,7 @@ import {UserRow} from "@/shared/components/user/UserRow"
 import Header from "@/shared/components/header/Header"
 import Dropdown from "@/shared/components/ui/Dropdown"
 import {SortedMap} from "@/utils/SortedMap/SortedMap"
+import ChatSettingsModal from "./ChatSettingsModal"
 import {useSessionsStore} from "@/stores/sessions"
 import {MessageType} from "../message/Message"
 import socialGraph from "@/utils/socialGraph"
@@ -18,6 +19,7 @@ interface PrivateChatHeaderProps {
 
 const PrivateChatHeader = ({id}: PrivateChatHeaderProps) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const myPubKey = usePublicKey()
   const navigate = useNavigate()
   const {sessions, deleteSession} = useSessionsStore()
@@ -61,40 +63,48 @@ const PrivateChatHeader = ({id}: PrivateChatHeaderProps) => {
     socialGraph().getFollowedByUser(user).has(myPubKey) || user === myPubKey
 
   return (
-    <Header showNotifications={false} scrollDown={true} slideUp={false} bold={false}>
-      <div className="flex items-center justify-between w-full">
-        <div className="flex flex-row items-center gap-2">
-          {id && <UserRow avatarWidth={32} pubKey={user} />}
-          <ConnectionStatus peerId={id} showDisconnect={true} />
-        </div>
-        <div className="flex items-center gap-2 relative">
-          {showWebRtc && (
+    <>
+      <Header showNotifications={false} scrollDown={true} slideUp={false} bold={false}>
+        <div className="flex items-center justify-between w-full">
+          <div className="flex flex-row items-center gap-2">
+            {id && <UserRow avatarWidth={32} pubKey={user} />}
+            <ConnectionStatus peerId={id} showDisconnect={true} />
+          </div>
+          <div className="flex items-center gap-2 relative">
+            {showWebRtc && (
+              <button
+                onClick={handleSendFile}
+                className="btn btn-ghost btn-sm btn-circle"
+                title="Send file"
+              >
+                <RiAttachment2 className="h-5 w-5 cursor-pointer text-base-content/50" />
+              </button>
+            )}
             <button
-              onClick={handleSendFile}
+              onClick={() => setDropdownOpen(!dropdownOpen)}
               className="btn btn-ghost btn-sm btn-circle"
-              title="Send file"
             >
-              <RiAttachment2 className="h-5 w-5 cursor-pointer text-base-content/50" />
+              <RiMoreLine className="h-6 w-6 cursor-pointer text-base-content/50" />
             </button>
-          )}
-          <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="btn btn-ghost btn-sm btn-circle"
-          >
-            <RiMoreLine className="h-6 w-6 cursor-pointer text-base-content/50" />
-          </button>
-          {dropdownOpen && (
-            <Dropdown onClose={() => setDropdownOpen(false)}>
-              <ul className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-                <li>
-                  <button onClick={handleDeleteChat}>Delete Chat</button>
-                </li>
-              </ul>
-            </Dropdown>
-          )}
+            {dropdownOpen && (
+              <Dropdown onClose={() => setDropdownOpen(false)}>
+                <ul className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                  <li>
+                    <button onClick={() => setShowSettings(true)}>Chat settings</button>
+                  </li>
+                  <li>
+                    <button onClick={handleDeleteChat}>Delete Chat</button>
+                  </li>
+                </ul>
+              </Dropdown>
+            )}
+          </div>
         </div>
-      </div>
-    </Header>
+      </Header>
+      {showSettings && (
+        <ChatSettingsModal sessionId={id} onClose={() => setShowSettings(false)} />
+      )}
+    </>
   )
 }
 
