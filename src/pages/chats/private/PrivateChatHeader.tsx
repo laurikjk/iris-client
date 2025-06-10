@@ -6,6 +6,7 @@ import Header from "@/shared/components/header/Header"
 import Dropdown from "@/shared/components/ui/Dropdown"
 import {SortedMap} from "@/utils/SortedMap/SortedMap"
 import {useSessionsStore} from "@/stores/sessions"
+import DeleteChatModal from "./DeleteChatModal"
 import {MessageType} from "../message/Message"
 import socialGraph from "@/utils/socialGraph"
 import {usePublicKey} from "@/stores/user"
@@ -18,13 +19,19 @@ interface PrivateChatHeaderProps {
 
 const PrivateChatHeader = ({id}: PrivateChatHeaderProps) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
   const myPubKey = usePublicKey()
   const navigate = useNavigate()
   const {sessions, deleteSession} = useSessionsStore()
   const session = sessions.get(id)
 
   const handleDeleteChat = () => {
-    if (id && confirm("Delete this chat?")) {
+    setDropdownOpen(false)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDeleteChat = () => {
+    if (id) {
       deleteSession(id)
       navigate("/chats")
     }
@@ -91,6 +98,12 @@ const PrivateChatHeader = ({id}: PrivateChatHeaderProps) => {
                 </li>
               </ul>
             </Dropdown>
+          )}
+          {showDeleteModal && (
+            <DeleteChatModal
+              onClose={() => setShowDeleteModal(false)}
+              onDelete={confirmDeleteChat}
+            />
           )}
         </div>
       </div>
