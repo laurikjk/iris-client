@@ -262,8 +262,7 @@ const PublicChat = () => {
       <PublicChatHeader channelId={id || ""} />
       <ChatContainer
         messages={messages}
-        session={session} // TODO: remove this when fixing reactions
-        sessionId={id || ""} // TODO: remove this when fixing reactions
+        sessionId={id || ""}
         onReply={setReplyingTo}
         showAuthor={true}
         isPublicChat={true}

@@ -1,4 +1,4 @@
-import {Session, getMillisecondTimestamp} from "nostr-double-ratchet/src"
+import {getMillisecondTimestamp} from "nostr-double-ratchet/src"
 import {useLayoutEffect, useRef, useState, useEffect} from "react"
 import ErrorBoundary from "@/shared/components/ui/ErrorBoundary"
 import Message, {MessageType} from "../message/Message"
@@ -7,14 +7,13 @@ import {SortedMap} from "@/utils/SortedMap/SortedMap"
 
 interface ChatContainerProps {
   messages: SortedMap<string, MessageType>
-  session: Session
   sessionId: string
   onReply: (message: MessageType) => void
   showAuthor?: boolean
   isPublicChat?: boolean
   initialLoadDone?: boolean
   showNoMessages?: boolean
-  onSendReaction?: (messageId: string, emoji: string) => Promise<void>
+  onSendReaction: (messageId: string, emoji: string) => Promise<void>
   reactions?: Record<string, Record<string, string>>
 }
 
@@ -22,7 +21,6 @@ const root = document.documentElement
 
 const ChatContainer = ({
   messages,
-  session,
   sessionId,
   onReply,
   showAuthor = false,
@@ -149,7 +147,6 @@ const ChatContainer = ({
                         message={message}
                         isFirst={messageIndex === 0}
                         isLast={messageIndex === group.length - 1}
-                        session={session}
                         sessionId={sessionId}
                         onReply={() => onReply(message)}
                         showAuthor={showAuthor}

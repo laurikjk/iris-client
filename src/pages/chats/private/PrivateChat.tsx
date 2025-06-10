@@ -9,7 +9,7 @@ import {useEventsStore} from "@/stores/events"
 import {useEffect, useState} from "react"
 
 const Chat = ({id}: {id: string}) => {
-  const {sessions, updateLastSeen} = useSessionsStore()
+  const {sessions, updateLastSeen, sendMessage} = useSessionsStore()
   const {events} = useEventsStore()
   const [haveReply, setHaveReply] = useState(false)
   const [haveSent, setHaveSent] = useState(false)
@@ -64,14 +64,22 @@ const Chat = ({id}: {id: string}) => {
 
   const messages = events.get(id) ?? new SortedMap<string, MessageType>([], comparator)
 
+  const handleSendReaction = async (messageId: string, emoji: string) => {
+    try {
+      await sendMessage(id, emoji, messageId, true)
+    } catch (err) {
+      console.error("Error sending reaction:", err)
+    }
+  }
+
   return (
     <>
       <PrivateChatHeader id={id} messages={messages} />
       <ChatContainer
         messages={messages}
-        session={session}
         sessionId={id}
         onReply={setReplyingTo}
+        onSendReaction={handleSendReaction}
       />
       <MessageForm id={id} replyingTo={replyingTo} setReplyingTo={setReplyingTo} />
     </>
