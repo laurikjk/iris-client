@@ -190,7 +190,7 @@ const Message = ({
                   "whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
                 )}
               >
-                <HyperText small={true} truncate={500}>
+                <HyperText event={message} small={true} truncate={500}>
                   {message.content}
                 </HyperText>
               </p>
