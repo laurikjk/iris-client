@@ -29,7 +29,7 @@ test("user can react to a chat message", async ({page}) => {
   await expect(page.getByRole("paragraph").filter({hasText: text})).toBeVisible()
 
   await page.getByTestId("reaction-button").click()
-  await page.getByRole("button", {name: "👍"}).click()
+  await page.getByRole("button", {name: "👍"}).first().click()
 
   await expect(page.getByText("👍")).toBeVisible()
 })
