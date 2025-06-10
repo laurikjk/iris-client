@@ -92,16 +92,10 @@ const Message = ({
     [message.content]
   )
 
+  const sessionReactions = events.get(sessionId)?.get(message.id)?.reactions || {}
+
   // Set up reaction subscription
   useEffect(() => {
-    if (session) {
-      const sessionEvents = events.get(sessionId)
-      const event = sessionEvents?.get(message.id)
-      if (event) {
-        setLocalReactions(event.reactions || {})
-      }
-      return
-    }
     const filter = {
       kinds: [7], // REACTION_KIND
       "#e": [message.id],
@@ -165,7 +159,6 @@ const Message = ({
         {isUser && (
           <MessageReactionButton
             messageId={message.id}
-            session={session}
             sessionId={sessionId}
             isUser={isUser}
             onReply={onReply}
@@ -212,13 +205,12 @@ const Message = ({
             </div>
           </div>
 
-          <MessageReactions rawReactions={localReactions} isUser={isUser} />
+          <MessageReactions rawReactions={sessionReactions} isUser={isUser} />
         </div>
 
         {!isUser && (
           <MessageReactionButton
             messageId={message.id}
-            session={session}
             sessionId={sessionId}
             isUser={isUser}
             onReply={onReply}
