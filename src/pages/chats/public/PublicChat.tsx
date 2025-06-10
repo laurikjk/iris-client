@@ -24,7 +24,6 @@ const PublicChat = () => {
   const [messages, setMessages] = useState<SortedMap<string, MessageType>>(
     new SortedMap<string, MessageType>([], comparator)
   )
-  const [reactions, setReactions] = useState<Record<string, Record<string, string>>>({})
   const [replyingTo, setReplyingTo] = useState<MessageType>()
   const [error, setError] = useState<string | null>(null)
   const initialLoadDoneRef = useRef<boolean>(false)
@@ -104,27 +103,7 @@ const PublicChat = () => {
           return prev
         }
 
-        // Check if there are any pending reactions for this message
-        const pendingReactionsForMessage = reactions[newMessage.id] || {}
-        if (Object.keys(pendingReactionsForMessage).length > 0) {
-          // Create a copy of the reactions
-          const updatedReactions = {...newMessage.reactions}
 
-          // Apply all pending reactions
-          Object.entries(pendingReactionsForMessage).forEach(([reactionPubkey, reactionContent]) => {
-            updatedReactions[reactionPubkey] = reactionContent
-          })
-
-          // Update the message with the reactions
-          newMessage.reactions = updatedReactions
-
-          // Remove the pending reactions for this message
-          setReactions((prev) => {
-            const updated = {...prev}
-            delete updated[newMessage.id]
-            return updated
-          })
-        }
 
         // Add new message to SortedMap
         const updated = new SortedMap(prev, comparator)
@@ -217,18 +196,6 @@ const PublicChat = () => {
       // Sign and publish the event
       await event.sign()
       await event.publish()
-
-      // Update reactions state immediately for better UX
-      setReactions((prev) => {
-        const messageReactions = prev[messageId] || {}
-        return {
-          ...prev,
-          [messageId]: {
-            ...messageReactions,
-            [publicKey]: emoji,
-          },
-        }
-      })
     } catch (err) {
       console.error("Error sending reaction:", err)
       setError("Failed to send reaction")
@@ -284,7 +251,6 @@ const PublicChat = () => {
         initialLoadDone={initialLoadDone}
         showNoMessages={showNoMessages}
         onSendReaction={handleSendReaction}
-        reactions={reactions}
       />
       {publicKey && (
         <MessageForm

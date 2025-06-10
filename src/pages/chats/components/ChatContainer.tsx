@@ -14,7 +14,6 @@ interface ChatContainerProps {
   initialLoadDone?: boolean
   showNoMessages?: boolean
   onSendReaction?: (messageId: string, emoji: string) => Promise<void>
-  reactions?: Record<string, Record<string, string>>
 }
 
 const root = document.documentElement
@@ -28,7 +27,6 @@ const ChatContainer = ({
   initialLoadDone = false,
   showNoMessages = false,
   onSendReaction,
-  reactions = {},
 }: ChatContainerProps) => {
   const [showScrollDown, setShowScrollDown] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -151,7 +149,6 @@ const ChatContainer = ({
                         onReply={() => onReply(message)}
                         showAuthor={showAuthor}
                         onSendReaction={onSendReaction}
-                        reactions={reactions[message.id]}
                       />
                     ))}
                   </ErrorBoundary>
