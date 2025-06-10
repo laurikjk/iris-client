@@ -15,6 +15,7 @@ import {ndk} from "@/utils/ndk"
 export type MessageType = Rumor & {
   sender?: "user"
   reactions?: Record<string, string>
+  expires_at?: number
 }
 
 type MessageProps = {

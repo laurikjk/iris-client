@@ -29,10 +29,35 @@ interface EventsStoreActions {
 
 type EventsStore = EventsStoreState & EventsStoreActions
 
-export const useEventsStore = create<EventsStore>((set) => {
+export const useEventsStore = create<EventsStore>((set, get) => {
+  const expirationTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+  const scheduleExpiration = (sessionId: string, message: MessageType) => {
+    if (!message.expires_at) return
+    const key = `${sessionId}:${message.id}`
+    const delay = message.expires_at * 1000 - Date.now()
+    if (delay <= 0) {
+      get().removeMessage(sessionId, message.id)
+      return
+    }
+    if (expirationTimers.has(key)) {
+      clearTimeout(expirationTimers.get(key))
+    }
+    const t = setTimeout(() => {
+      get().removeMessage(sessionId, message.id)
+      expirationTimers.delete(key)
+    }, delay)
+    expirationTimers.set(key, t)
+  }
+
   const rehydration = messageRepository
     .loadAll()
-    .then((data) => set({events: data}))
+    .then((data) => {
+      set({events: data})
+      data.forEach((map, sessionId) => {
+        map.forEach((msg) => scheduleExpiration(sessionId, msg))
+      })
+    })
     .catch(console.error)
   return {
     events: new Map(),
@@ -43,6 +68,7 @@ export const useEventsStore = create<EventsStore>((set) => {
       set((state) => ({
         events: addToMap(new Map(state.events), sessionId, message),
       }))
+      scheduleExpiration(sessionId, message)
     },
 
     removeSession: async (sessionId) => {
@@ -53,6 +79,12 @@ export const useEventsStore = create<EventsStore>((set) => {
         events.delete(sessionId)
         return {events}
       })
+      Array.from(expirationTimers.keys())
+        .filter((key) => key.startsWith(`${sessionId}:`))
+        .forEach((key) => {
+          clearTimeout(expirationTimers.get(key)!)
+          expirationTimers.delete(key)
+        })
     },
 
     clear: async () => {
@@ -77,6 +109,11 @@ export const useEventsStore = create<EventsStore>((set) => {
         }
         return {events}
       })
+      const key = `${sessionId}:${messageId}`
+      if (expirationTimers.has(key)) {
+        clearTimeout(expirationTimers.get(key)!)
+        expirationTimers.delete(key)
+      }
     },
   }
 })

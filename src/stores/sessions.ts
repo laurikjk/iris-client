@@ -8,6 +8,7 @@ import {
 import {createJSONStorage, persist, PersistStorage} from "zustand/middleware"
 import {NDKEventFromRawEvent, RawEvent} from "@/utils/nostr"
 import {MessageType} from "@/pages/chats/message/Message"
+import {useChatSettingsStore} from "./chatSettings"
 import {Filter, VerifiedEvent} from "nostr-tools"
 import {hexToBytes} from "@noble/hashes/utils"
 import {useEventsStore} from "./events"
@@ -127,7 +128,12 @@ const store = create<SessionStore>()(
           newSessions.set(sessionId, session)
           store.setState({sessions: newSessions})
           const sessionUnsubscribe = session.onEvent((event) => {
-            useEventsStore.getState().upsert(sessionId, event)
+            const expiresTag = event.tags.find((t) => t[0] === "expires_at")?.[1]
+            const parsed = {
+              ...event,
+              expires_at: expiresTag ? Number(expiresTag) : undefined,
+            }
+            useEventsStore.getState().upsert(sessionId, parsed)
             store.setState({sessions: new Map(store.getState().sessions)})
           })
           sessionListeners.set(sessionId, sessionUnsubscribe)
@@ -140,18 +146,35 @@ const store = create<SessionStore>()(
         if (!session) {
           throw new Error("Session not found")
         }
+        const expiry = useChatSettingsStore.getState().expiry[sessionId]
+        let expiresAt: number | undefined
+        if (expiry) {
+          expiresAt = Math.floor(Date.now() / 1000) + expiry
+        } else {
+          const events = useEventsStore.getState().events.get(sessionId)
+          if (events) {
+            const last = Array.from(events.values())
+              .reverse()
+              .find((m) => m.sender !== "user" && m.expires_at)
+            if (last && last.expires_at) {
+              expiresAt = last.expires_at
+            }
+          }
+        }
         const {event, innerEvent} = session.sendEvent({
           content,
           kind: CHAT_MESSAGE_KIND,
           tags: [
             ...(replyingToId ? [["e", replyingToId]] : []),
             ["ms", Date.now().toString()],
+            ...(expiresAt ? [["expires_at", expiresAt.toString()]] : []),
           ],
         })
         const message: MessageType = {
           ...innerEvent,
           sender: "user",
           reactions: {},
+          expires_at: expiresAt,
         }
         // Optimistic update
         useEventsStore.getState().upsert(sessionId, message)
@@ -197,7 +220,12 @@ const store = create<SessionStore>()(
         const newSessions = new Map(get().sessions)
         newSessions.set(sessionId, session)
         const sessionUnsubscribe = session.onEvent((event) => {
-          useEventsStore.getState().upsert(sessionId, event)
+          const expiresTag = event.tags.find((t) => t[0] === "expires_at")?.[1]
+          const parsed = {
+            ...event,
+            expires_at: expiresTag ? Number(expiresTag) : undefined,
+          }
+          useEventsStore.getState().upsert(sessionId, parsed)
           // make sure we persist session state
           set({sessions: new Map(get().sessions)})
         })
@@ -251,7 +279,12 @@ const store = create<SessionStore>()(
               newSessions.set(sessionId, session)
               store.setState({sessions: newSessions})
               const sessionUnsubscribe = session.onEvent((event) => {
-                useEventsStore.getState().upsert(sessionId, event)
+                const expiresTag = event.tags.find((t) => t[0] === "expires_at")?.[1]
+                const parsed = {
+                  ...event,
+                  expires_at: expiresTag ? Number(expiresTag) : undefined,
+                }
+                useEventsStore.getState().upsert(sessionId, parsed)
                 store.setState({sessions: new Map(store.getState().sessions)})
               })
               sessionListeners.set(sessionId, sessionUnsubscribe)
@@ -264,7 +297,12 @@ const store = create<SessionStore>()(
             return
           }
           const sessionUnsubscribe = session.onEvent((event) => {
-            useEventsStore.getState().upsert(sessionId, event)
+            const expiresTag = event.tags.find((t) => t[0] === "expires_at")?.[1]
+            const parsed = {
+              ...event,
+              expires_at: expiresTag ? Number(expiresTag) : undefined,
+            }
+            useEventsStore.getState().upsert(sessionId, parsed)
             store.setState({sessions: new Map(store.getState().sessions)})
           })
           sessionListeners.set(sessionId, sessionUnsubscribe)
@@ -276,7 +314,7 @@ const store = create<SessionStore>()(
         JSON.parse(localStorage.getItem("sessions") || "null")
       ),
       version: 1,
-      migrate: async (oldData: any, version) => {
+      migrate: async (oldData: unknown, version) => {
         if (version === 0 && oldData) {
           const data = {
             version: 1,

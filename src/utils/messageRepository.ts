@@ -20,7 +20,11 @@ const db = new MessageDb()
 export async function loadAll(): Promise<Map<string, SortedMap<string, MessageType>>> {
   const msgArray = await db.messages.toArray()
   const sessionMap = new Map<string, SortedMap<string, MessageType>>()
+  const now = Date.now() / 1000
   msgArray.forEach((msg) => {
+    if (msg.expires_at && msg.expires_at <= now) {
+      return
+    }
     const {session_id, ...event} = msg
     const m =
       sessionMap.get(session_id) || new SortedMap<string, MessageType>([], comparator)
