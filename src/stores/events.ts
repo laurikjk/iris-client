@@ -58,7 +58,6 @@ export const useEventsStore = create<EventsStore>((set) => {
     upsert: async (sessionId, event) => {
       await rehydration
       const message = await makeMessage(event)
-      console.log("made a message", message)
       await messageRepository.save(sessionId, message)
       set((state) => ({
         events: addToMap(new Map(state.events), sessionId, message),

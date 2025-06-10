@@ -28,7 +28,12 @@ interface SessionStoreActions {
   createInvite: (label: string, inviteId?: string) => void
   createDefaultInvites: () => void
   acceptInvite: (url: string) => Promise<string>
-  sendMessage: (id: string, content: string, replyingToId?: string) => Promise<void>
+  sendMessage: (
+    id: string,
+    content: string,
+    replyingToId?: string,
+    isReaction?: boolean
+  ) => Promise<void>
   updateLastSeen: (sessionId: string) => void
   deleteInvite: (id: string) => void
   deleteSession: (id: string) => void
@@ -117,14 +122,21 @@ const store = create<SessionStore>()(
         inviteListeners.set(id, unsubscribe)
         set({invites: newInvites})
       },
-      sendMessage: async (sessionId: string, content: string, replyingToId?: string) => {
+      sendMessage: async (
+        sessionId: string,
+        content: string,
+        replyingToId?: string,
+        isReaction?: boolean
+      ) => {
         const session = get().sessions.get(sessionId)
         if (!session) {
           throw new Error("Session not found")
         }
+        // TODO: isReaction and missing replyingToId is err
+
         const {event, innerEvent} = session.sendEvent({
           content,
-          kind: CHAT_MESSAGE_KIND,
+          kind: isReaction ? 6 : CHAT_MESSAGE_KIND,
           tags: [
             ...(replyingToId ? [["e", replyingToId]] : []),
             ["ms", Date.now().toString()],
