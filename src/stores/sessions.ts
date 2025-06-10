@@ -15,6 +15,7 @@ import localforage from "localforage"
 import {useUserStore} from "./user"
 import {ndk} from "@/utils/ndk"
 import {create} from "zustand"
+import { REACTION_KIND } from "@/pages/chats/utils/constants"
 
 // Changing storage engine doesn't trigger migration. Only version difference in storage does.
 // Here's an utility function that works around it by setting a dummy entry with version 0.
@@ -156,7 +157,7 @@ const store = create<SessionStore>()(
 
         const {event, innerEvent} = session.sendEvent({
           content,
-          kind: isReaction ? 6 : CHAT_MESSAGE_KIND,
+          kind: isReaction ? REACTION_KIND : CHAT_MESSAGE_KIND,
           tags: [
             ...(replyingToId ? [["e", replyingToId]] : []),
             ["ms", Date.now().toString()],

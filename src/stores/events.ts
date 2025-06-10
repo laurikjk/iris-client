@@ -1,6 +1,7 @@
 import {comparator} from "@/pages/chats/utils/messageGrouping"
 import type {MessageType} from "@/pages/chats/message/Message"
 import * as messageRepository from "@/utils/messageRepository"
+import {REACTION_KIND} from "@/pages/chats/utils/constants"
 import {SortedMap} from "@/utils/SortedMap/SortedMap"
 import {useUserStore} from "./user"
 import {create} from "zustand"
@@ -31,7 +32,7 @@ interface EventsStoreActions {
 type EventsStore = EventsStoreState & EventsStoreActions
 
 const makeOrModifyMessage = async (sessionId: string, message: MessageType) => {
-  const isReaction = message.kind === 6
+  const isReaction = message.kind === REACTION_KIND
   const eTag = message.tags.find(([key]) => key === "e")
   if (isReaction && eTag) {
     const [, messageId] = eTag
