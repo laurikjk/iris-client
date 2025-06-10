@@ -157,11 +157,10 @@ const store = create<SessionStore>()(
         useEventsStore.getState().upsert(sessionId, message)
         try {
           const e = NDKEventFromRawEvent(event)
-          await e.publish()
+          await e.publish(undefined, undefined, 0) // required relay count 0
           console.log("published", event.id)
         } catch (err) {
           console.warn("Error publishing event:", err)
-          await useEventsStore.getState().removeMessage(sessionId, message.id)
         }
         // make sure we persist session state
         set({sessions: new Map(get().sessions)})
