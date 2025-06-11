@@ -8,7 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: "html",
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: "http://localhost:4173",
     trace: "on-first-retry",
     video: "on-first-retry",
   },
@@ -19,8 +19,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "yarn dev",
-    url: "http://localhost:5173",
+    command: "npx --yes serve -s dist -l 4173",
+    url: "http://localhost:4173",
     reuseExistingServer: !process.env.CI,
   },
 })
