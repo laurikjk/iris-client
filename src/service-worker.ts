@@ -215,9 +215,10 @@ const NOTIFICATION_CONFIGS: Record<
 
 async function findSessionId(pubkey: string): Promise<string | undefined> {
   try {
-    const stored = await localforage.getItem<{
-      state?: {sessions?: [string, string][]}
-    }>("sessions")
+    console.debug("Searching for session with pubkey:", pubkey)
+    const storedString = await localforage.getItem<string>("sessions")
+    const stored = storedString ? JSON.parse(storedString) : null
+    console.debug("Loaded stored sessions:", stored)
     const sessions = stored?.state?.sessions
     if (!Array.isArray(sessions)) return
     for (const [id, serializedState] of sessions) {
@@ -243,12 +244,12 @@ self.addEventListener("push", async (e) => {
   console.debug("Received web push data:", data)
 
   // Check if we should show notification based on page visibility
-  const clients = await self.clients.matchAll({type: "window", includeUncontrolled: true})
-  const isPageVisible = clients.some((client) => client.visibilityState === "visible")
-  if (isPageVisible) {
-    console.debug("Page is visible, ignoring web push")
-    return
-  }
+  // const clients = await self.clients.matchAll({type: "window", includeUncontrolled: true})
+  // const isPageVisible = clients.some((client) => client.visibilityState === "visible")
+  // if (isPageVisible) {
+  //   console.debug("Page is visible, ignoring web push")
+  //   return
+  // }
 
   if (!data?.event) return
 
