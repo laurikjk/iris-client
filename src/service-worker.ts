@@ -244,7 +244,8 @@ self.addEventListener("push", async (e) => {
           state.theirNextNostrPublicKey === data.event.pubkey
         ) {
           const session = new Session(() => () => {}, state)
-          let inner: Rumor | null = null
+          // Temporary variable for decrypted inner event
+          let inner: Rumor | undefined
           ;(
             session as unknown as {
               internalSubscriptions: Map<number, (ev: Rumor) => void>
