@@ -55,5 +55,6 @@ export async function getById(messageId: string): Promise<MessageType | undefine
   const msg = await db.messages.get(messageId)
   if (!msg) return msg
   const {session_id, ...event} = msg
+  void session_id
   return event
 }

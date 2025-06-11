@@ -7,6 +7,7 @@ import {
 } from "nostr-double-ratchet/src"
 import {createJSONStorage, persist, PersistStorage} from "zustand/middleware"
 import {NDKEventFromRawEvent, RawEvent} from "@/utils/nostr"
+import {REACTION_KIND} from "@/pages/chats/utils/constants"
 import {MessageType} from "@/pages/chats/message/Message"
 import {Filter, VerifiedEvent} from "nostr-tools"
 import {hexToBytes} from "@noble/hashes/utils"
@@ -15,7 +16,6 @@ import localforage from "localforage"
 import {useUserStore} from "./user"
 import {ndk} from "@/utils/ndk"
 import {create} from "zustand"
-import { REACTION_KIND } from "@/pages/chats/utils/constants"
 
 // Changing storage engine doesn't trigger migration. Only version difference in storage does.
 // Here's an utility function that works around it by setting a dummy entry with version 0.
@@ -290,8 +290,8 @@ const store = create<SessionStore>()(
         JSON.parse(localStorage.getItem("sessions") || "null")
       ),
       version: 1,
-      migrate: async (oldData: any, version) => {
-        if (version === 0 && oldData) {
+      migrate: async (oldData: unknown, version) => {
+        if (version === 0 && oldData && typeof oldData === "object") {
           const data = {
             version: 1,
             state: oldData.state,
