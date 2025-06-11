@@ -3,6 +3,9 @@ import {
   INVITE_EVENT_KIND,
   INVITE_RESPONSE_KIND,
   MESSAGE_EVENT_KIND,
+  Session,
+  deserializeSessionState,
+  serializeSessionState,
 } from "nostr-double-ratchet/src"
 import {PROFILE_AVATAR_WIDTH, EVENT_AVATAR_WIDTH} from "./shared/components/user/const"
 import {CacheFirst, StaleWhileRevalidate} from "workbox-strategies"
@@ -12,6 +15,7 @@ import {generateProxyUrl} from "./shared/utils/imgproxy"
 import {ExpirationPlugin} from "workbox-expiration"
 import {registerRoute} from "workbox-routing"
 import {clientsClaim} from "workbox-core"
+import localforage from "localforage"
 
 // eslint-disable-next-line no-undef
 declare const self: ServiceWorkerGlobalScope & {
@@ -211,6 +215,40 @@ const NOTIFICATION_CONFIGS: Record<
   },
 } as const
 
+async function decryptPrivateMessage(event: PushData["event"]): Promise<string | null> {
+  try {
+    const stored = await localforage.getItem<string>("sessions")
+    if (!stored) return null
+    const persisted = JSON.parse(stored)
+    const sessions: [string, string][] = persisted.state?.sessions || []
+
+    for (let i = 0; i < sessions.length; i++) {
+      const [id, stateString] = sessions[i]
+      const session = new Session(() => () => {}, deserializeSessionState(stateString))
+      let decrypted: any = null
+      const unsub = session.onEvent((ev) => {
+        decrypted = ev
+      })
+      try {
+        ;(session as any).handleNostrEvent(event)
+      } catch (_) {
+        unsub()
+        continue
+      }
+      unsub()
+      if (decrypted) {
+        sessions[i] = [id, serializeSessionState(session.state)]
+        persisted.state.sessions = sessions
+        await localforage.setItem("sessions", JSON.stringify(persisted))
+        return decrypted.content
+      }
+    }
+  } catch (e) {
+    console.error("Failed to decrypt message", e)
+  }
+  return null
+}
+
 self.addEventListener("push", async (e) => {
   const data = e.data?.json() as PushData | undefined
   console.debug("Received web push data:", data)
@@ -224,6 +262,19 @@ self.addEventListener("push", async (e) => {
   }
 
   if (!data?.event) return
+
+  if (data.event.kind === MESSAGE_EVENT_KIND) {
+    const body = await decryptPrivateMessage(data.event)
+    await self.registration.showNotification(
+      NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND].title,
+      {
+        body: body || undefined,
+        icon: NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND].icon,
+        data: {url: NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND].url, event: data.event},
+      }
+    )
+    return
+  }
 
   // Handle predefined notification types
   if (NOTIFICATION_CONFIGS[data.event.kind]) {
