@@ -3,6 +3,7 @@ import {
   INVITE_EVENT_KIND,
   INVITE_RESPONSE_KIND,
   MESSAGE_EVENT_KIND,
+  deserializeSessionState,
 } from "nostr-double-ratchet/src"
 import {PROFILE_AVATAR_WIDTH, EVENT_AVATAR_WIDTH} from "./shared/components/user/const"
 import {CacheFirst, StaleWhileRevalidate} from "workbox-strategies"
@@ -12,6 +13,7 @@ import {generateProxyUrl} from "./shared/utils/imgproxy"
 import {ExpirationPlugin} from "workbox-expiration"
 import {registerRoute} from "workbox-routing"
 import {clientsClaim} from "workbox-core"
+import localforage from "localforage"
 
 // eslint-disable-next-line no-undef
 declare const self: ServiceWorkerGlobalScope & {
@@ -211,6 +213,31 @@ const NOTIFICATION_CONFIGS: Record<
   },
 } as const
 
+async function findSessionId(pubkey: string): Promise<string | undefined> {
+  try {
+    const stored = await localforage.getItem<{
+      state?: {sessions?: [string, string][]}
+    }>("sessions")
+    const sessions = stored?.state?.sessions
+    if (!Array.isArray(sessions)) return
+    for (const [id, serializedState] of sessions) {
+      try {
+        const state = deserializeSessionState(serializedState)
+        if (
+          state.theirCurrentNostrPublicKey === pubkey ||
+          state.theirNextNostrPublicKey === pubkey
+        ) {
+          return id
+        }
+      } catch (e) {
+        console.error("Failed to deserialize session", e)
+      }
+    }
+  } catch (err) {
+    console.error("Failed to load sessions", err)
+  }
+}
+
 self.addEventListener("push", async (e) => {
   const data = e.data?.json() as PushData | undefined
   console.debug("Received web push data:", data)
@@ -224,6 +251,11 @@ self.addEventListener("push", async (e) => {
   }
 
   if (!data?.event) return
+
+  const sessionId = await findSessionId(data.event.pubkey)
+  if (sessionId) {
+    console.log("Notification belongs to session", sessionId)
+  }
 
   // Handle predefined notification types
   if (NOTIFICATION_CONFIGS[data.event.kind]) {
