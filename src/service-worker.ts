@@ -3,6 +3,10 @@ import {
   INVITE_EVENT_KIND,
   INVITE_RESPONSE_KIND,
   MESSAGE_EVENT_KIND,
+  Session,
+  deserializeSessionState,
+  serializeSessionState,
+  Rumor,
 } from "nostr-double-ratchet/src"
 import {PROFILE_AVATAR_WIDTH, EVENT_AVATAR_WIDTH} from "./shared/components/user/const"
 import {CacheFirst, StaleWhileRevalidate} from "workbox-strategies"
@@ -12,6 +16,7 @@ import {generateProxyUrl} from "./shared/utils/imgproxy"
 import {ExpirationPlugin} from "workbox-expiration"
 import {registerRoute} from "workbox-routing"
 import {clientsClaim} from "workbox-core"
+import localforage from "localforage"
 
 // eslint-disable-next-line no-undef
 declare const self: ServiceWorkerGlobalScope & {
@@ -142,6 +147,12 @@ interface PushData {
   url: string
 }
 
+interface PersistedSessions {
+  state?: {
+    sessions?: [string, string][]
+  }
+}
+
 self.addEventListener("notificationclick", (event) => {
   const notificationData = event.notification.data
   event.notification.close()
@@ -211,6 +222,43 @@ const NOTIFICATION_CONFIGS: Record<
   },
 } as const
 
+async function decryptPrivateMessage(
+  event: PushData["event"]
+): Promise<string | undefined> {
+  try {
+    const stored = await localforage.getItem<string>("sessions")
+    if (!stored) return undefined
+    const data: PersistedSessions = JSON.parse(stored)
+    const sessionsArr = data.state?.sessions
+    if (!sessionsArr) return undefined
+    for (let i = 0; i < sessionsArr.length; i++) {
+      const [, serialized] = sessionsArr[i]
+      try {
+        const sessionState = deserializeSessionState(serialized)
+        const session = new Session(() => () => {}, sessionState)
+        let decrypted: Rumor | undefined
+        const unsub = session.onEvent((ev) => {
+          decrypted = ev
+        })
+        ;(
+          session as unknown as {handleNostrEvent: (ev: PushData["event"]) => void}
+        ).handleNostrEvent(event)
+        unsub()
+        if (decrypted) {
+          sessionsArr[i][1] = serializeSessionState(session.state)
+          await localforage.setItem("sessions", JSON.stringify(data))
+          return decrypted.content
+        }
+      } catch (_) {
+        // ignore and try next session
+      }
+    }
+  } catch (e) {
+    console.error("Failed to decrypt message", e)
+  }
+  return undefined
+}
+
 self.addEventListener("push", async (e) => {
   const data = e.data?.json() as PushData | undefined
   console.debug("Received web push data:", data)
@@ -228,8 +276,13 @@ self.addEventListener("push", async (e) => {
   // Handle predefined notification types
   if (NOTIFICATION_CONFIGS[data.event.kind]) {
     const config = NOTIFICATION_CONFIGS[data.event.kind]
+    let body: string | undefined
+    if (data.event.kind === MESSAGE_EVENT_KIND) {
+      body = await decryptPrivateMessage(data.event)
+    }
     await self.registration.showNotification(config.title, {
       icon: config.icon,
+      body,
       data: {url: config.url, event: data.event},
     })
     return
