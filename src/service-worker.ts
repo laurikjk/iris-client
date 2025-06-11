@@ -3,6 +3,9 @@ import {
   INVITE_EVENT_KIND,
   INVITE_RESPONSE_KIND,
   MESSAGE_EVENT_KIND,
+  Session,
+  deserializeSessionState,
+  Rumor,
 } from "nostr-double-ratchet/src"
 import {PROFILE_AVATAR_WIDTH, EVENT_AVATAR_WIDTH} from "./shared/components/user/const"
 import {CacheFirst, StaleWhileRevalidate} from "workbox-strategies"
@@ -12,6 +15,7 @@ import {generateProxyUrl} from "./shared/utils/imgproxy"
 import {ExpirationPlugin} from "workbox-expiration"
 import {registerRoute} from "workbox-routing"
 import {clientsClaim} from "workbox-core"
+import localforage from "localforage"
 
 // eslint-disable-next-line no-undef
 declare const self: ServiceWorkerGlobalScope & {
@@ -224,6 +228,52 @@ self.addEventListener("push", async (e) => {
   }
 
   if (!data?.event) return
+
+  // Try to decrypt private messages for better notifications
+  if (data.event.kind === MESSAGE_EVENT_KIND) {
+    try {
+      const stored =
+        (await localforage.getItem<{
+          state?: {sessions?: [string, string][]}
+        }>("sessions")) || null
+      const sessions = stored?.state?.sessions || []
+      for (const [, sessionState] of sessions) {
+        const state = deserializeSessionState(sessionState)
+        if (
+          state.theirCurrentNostrPublicKey === data.event.pubkey ||
+          state.theirNextNostrPublicKey === data.event.pubkey
+        ) {
+          const session = new Session(() => () => {}, state)
+          let inner: Rumor | null = null
+          ;(
+            session as unknown as {
+              internalSubscriptions: Map<number, (ev: Rumor) => void>
+              handleNostrEvent: (ev: unknown) => void
+            }
+          ).internalSubscriptions.set(0, (ev: Rumor) => {
+            inner = ev
+          })
+          try {
+            ;(
+              session as unknown as {handleNostrEvent: (ev: unknown) => void}
+            ).handleNostrEvent(data.event as unknown)
+          } catch (err) {
+            console.error("Service worker decrypt error", err)
+          }
+          if (inner) {
+            await self.registration.showNotification("New private message", {
+              body: inner.content,
+              icon: "/favicon.png",
+              data: {url: "/chats", event: data.event},
+            })
+            return
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to decrypt push message", err)
+    }
+  }
 
   // Handle predefined notification types
   if (NOTIFICATION_CONFIGS[data.event.kind]) {
