@@ -5,6 +5,7 @@ import {
   ChangeEvent,
   KeyboardEvent as ReactKeyboardEvent,
 } from "react"
+import {useVisualViewportOffset} from "@/shared/hooks/useVisualViewportOffset"
 import {useAutosizeTextarea} from "@/shared/hooks/useAutosizeTextarea"
 import UploadButton from "@/shared/components/button/UploadButton"
 import EmojiButton from "@/shared/components/emoji/EmojiButton"
@@ -35,6 +36,7 @@ const MessageForm = ({
   const [newMessage, setNewMessage] = useState("")
   const textareaRef = useAutosizeTextarea(newMessage)
   const theirPublicKey = id.split(":")[0]
+  const keyboardOffset = useVisualViewportOffset()
 
   useEffect(() => {
     if (!isTouchDevice && textareaRef.current) {
@@ -103,7 +105,10 @@ const MessageForm = ({
   }
 
   return (
-    <footer className="border-t border-custom fixed md:sticky bottom-0 w-full pb-[env(safe-area-inset-bottom)] bg-base-200">
+    <footer
+      className="border-t border-custom fixed md:sticky bottom-0 w-full pb-[env(safe-area-inset-bottom)] bg-base-200"
+      style={{bottom: keyboardOffset}}
+    >
       {replyingTo && (
         <MessageFormReplyPreview
           replyingTo={replyingTo}
