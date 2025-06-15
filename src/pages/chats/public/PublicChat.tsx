@@ -242,25 +242,27 @@ const PublicChat = () => {
         <title>{metadata?.name || "Public Chat"}</title>
       </Helmet>
       <PublicChatHeader channelId={id || ""} />
-      <ChatContainer
-        messages={messages}
-        sessionId={id}
-        onReply={setReplyingTo}
-        showAuthor={true}
-        isPublicChat={true}
-        initialLoadDone={initialLoadDone}
-        showNoMessages={showNoMessages}
-        onSendReaction={handleSendReaction}
-      />
-      {publicKey && (
-        <MessageForm
-          id={id || ""}
-          replyingTo={replyingTo}
-          setReplyingTo={setReplyingTo}
-          onSendMessage={handleSendMessage}
+      <div className="flex flex-col h-dvh overscroll-none">
+        <ChatContainer
+          messages={messages}
+          sessionId={id}
+          onReply={setReplyingTo}
+          showAuthor={true}
           isPublicChat={true}
+          initialLoadDone={initialLoadDone}
+          showNoMessages={showNoMessages}
+          onSendReaction={handleSendReaction}
         />
-      )}
+        {publicKey && (
+          <MessageForm
+            id={id || ""}
+            replyingTo={replyingTo}
+            setReplyingTo={setReplyingTo}
+            onSendMessage={handleSendMessage}
+            isPublicChat={true}
+          />
+        )}
+      </div>
     </>
   )
 }

@@ -86,6 +86,11 @@ iframe {
   display: none;  /* Safari and Chrome */
 }
 
+/* adds space equal to the keyboard height where supported */
+.chat-input-bar {
+  padding-bottom: env(keyboard-inset-height, 0px);
+}
+
 /* modals */
 
 .modal-box {

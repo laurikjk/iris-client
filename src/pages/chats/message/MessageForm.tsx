@@ -7,6 +7,7 @@ import {
 } from "react"
 import {useAutosizeTextarea} from "@/shared/hooks/useAutosizeTextarea"
 import UploadButton from "@/shared/components/button/UploadButton"
+import {useIOSKeyboardOffset} from "@/hooks/useIOSKeyboardOffset"
 import EmojiButton from "@/shared/components/emoji/EmojiButton"
 import MessageFormReplyPreview from "./MessageFormReplyPreview"
 import {isTouchDevice} from "@/shared/utils/isTouchDevice"
@@ -35,6 +36,7 @@ const MessageForm = ({
   const [newMessage, setNewMessage] = useState("")
   const textareaRef = useAutosizeTextarea(newMessage)
   const theirPublicKey = id.split(":")[0]
+  const iosOffset = useIOSKeyboardOffset()
 
   useEffect(() => {
     if (!isTouchDevice && textareaRef.current) {
@@ -103,7 +105,10 @@ const MessageForm = ({
   }
 
   return (
-    <footer className="border-t border-custom fixed md:sticky bottom-0 w-full pb-[env(safe-area-inset-bottom)] bg-base-200">
+    <footer
+      className="chat-input-bar border-t border-custom fixed md:sticky inset-x-0 bottom-0 w-full pb-[env(safe-area-inset-bottom)] bg-base-200"
+      style={{transform: `translateY(-${iosOffset}px)`}}
+    >
       {replyingTo && (
         <MessageFormReplyPreview
           replyingTo={replyingTo}
