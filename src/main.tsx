@@ -12,6 +12,13 @@ import {router} from "@/pages"
 
 ndk()
 
+if ("virtualKeyboard" in navigator) {
+  // Android/Chrome only – makes env(keyboard-inset-height) kick in
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore
+  navigator.virtualKeyboard.overlaysContent = true
+}
+
 // Initialize chat modules if we have a public key
 const state = useUserStore.getState()
 if (state.publicKey) {
