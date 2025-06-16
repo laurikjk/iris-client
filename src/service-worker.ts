@@ -6,6 +6,7 @@ import {
   Session,
   deserializeSessionState,
 } from "nostr-double-ratchet/src"
+import type {NostrEvent} from "nostr-double-ratchet/src"
 import {PROFILE_AVATAR_WIDTH, EVENT_AVATAR_WIDTH} from "./shared/components/user/const"
 import {CacheFirst, StaleWhileRevalidate} from "workbox-strategies"
 import {CacheableResponsePlugin} from "workbox-cacheable-response"
@@ -18,6 +19,28 @@ import localforage from "localforage"
 
 // A no-op subscribe function for reconstructing Session only for decryption
 const noOpSubscribe = () => () => {}
+
+(Session as any).fromState ??= function (state: any) {
+  const dummy = Object.create(Session.prototype)
+  Object.assign(dummy, {state, nostrSubscribe: noOpSubscribe})
+  return dummy as InstanceType<typeof Session>
+}
+
+async function decryptOnce(rawEvent: NostrEvent, storedJson: string) {
+  const baseState = deserializeSessionState(storedJson)
+  const s = (Session as any).fromState(baseState)
+  let innerEvent: any = null
+  const unsub = s.onEvent((e: any) => {
+    innerEvent = e
+  })
+  try {
+    const handler = (s as any).handleIncoming ?? (s as any).handleNostrEvent
+    await handler.call(s, rawEvent)
+    return innerEvent
+  } finally {
+    unsub()
+  }
+}
 
 // eslint-disable-next-line no-undef
 declare const self: ServiceWorkerGlobalScope & {
@@ -255,33 +278,18 @@ self.addEventListener("push", async (e) => {
       wrapper?.state?.sessions ?? wrapper?.sessions ?? []
     for (const [sessionId, stateStr] of sessionEntries) {
       try {
-        const sessionState = deserializeSessionState(stateStr)
-        console.log("Decrypted session state for", sessionId, sessionState)
-        const session = new Session(noOpSubscribe, sessionState)
-        console.debug("Attempting to decrypt message with session", sessionId)
-        // delegate decryption to the library's built-in handler
-        let innerEvent: any = null
-        const unsubscribe = session.onEvent((e) => {
-          innerEvent = e
-        })
-        try {
-          // @ts-ignore access private handleNostrEvent
-          (session as any).handleNostrEvent(data.event)
-          if (innerEvent) {
-            const sessionName = sessionId.split(":")[1]
-            const title = `${sessionName}: ${innerEvent.content}`
-            const url = `/chats/${encodeURIComponent(sessionId)}`
-            const icon = NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND]?.icon || "/favicon.png"
-            await self.registration.showNotification(title, {
-              icon,
-              data: {url, event: data.event},
-            })
-            return
-          }
-        } catch (e) {
-          console.error("Failed to decrypt message with session", sessionId, e)
-        } finally {
-          unsubscribe()
+        const innerEvent = await decryptOnce(data.event as NostrEvent, stateStr)
+        if (innerEvent) {
+          const sessionName = sessionId.split(":")[1]
+          const title = `${sessionName}: ${innerEvent.content}`
+          const url = `/chats/${encodeURIComponent(sessionId)}`
+          const icon =
+            NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND]?.icon || "/favicon.png"
+          await self.registration.showNotification(title, {
+            icon,
+            data: {url, event: data.event},
+          })
+          return
         }
       } catch (e) {
         console.error("Failed to decrypt message with session", sessionId, e)
