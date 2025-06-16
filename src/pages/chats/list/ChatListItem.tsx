@@ -15,6 +15,7 @@ import {useLocation, NavLink} from "react-router"
 import {MessageType} from "../message/Message"
 import {useEventsStore} from "@/stores/events"
 import {RiEarthLine} from "@remixicon/react"
+import {useUserStore} from "@/stores/user"
 import debounce from "lodash/debounce"
 import classNames from "classnames"
 import {ndk} from "@/utils/ndk"
@@ -31,6 +32,7 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
   const [latestMessage, setLatestMessage] = useState<{
     content: string
     created_at: number
+    pubkey: string
   } | null>(null)
   const {setPublicChatTimestamps} = useContext(PublicChatContext)
   const [showPlaceholder, setShowPlaceholder] = useState(false)
@@ -38,6 +40,7 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false)
   const {events} = useEventsStore()
   const {lastSeen, lastSeenPublic, updateLastSeenPublic} = useSessionsStore()
+  const myPubKey = useUserStore((state) => state.publicKey)
 
   // Fetch channel metadata for public chats
   useEffect(() => {
@@ -66,7 +69,11 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
   useEffect(() => {
     if (!isPublic) return
 
-    let latestMessageInMemory: {content: string; created_at: number} | null = null
+    let latestMessageInMemory: {
+      content: string
+      created_at: number
+      pubkey: string
+    } | null = null
 
     const debouncedUpdate = debounce(() => {
       if (latestMessageInMemory) {
@@ -97,6 +104,7 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
         latestMessageInMemory = {
           content: event.content,
           created_at: event.created_at,
+          pubkey: event.pubkey,
         }
         debouncedUpdate()
       }
@@ -196,6 +204,7 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
             {(() => {
               if (isPublic) {
                 if (!latestMessage?.created_at) return null
+                if (latestMessage.pubkey === myPubKey) return null
                 const hasUnread = latestMessage.created_at * 1000 > lastSeenPublicTime
                 return (
                   (!lastSeenPublicTime || hasUnread) && (
@@ -204,6 +213,7 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
                 )
               } else {
                 if (!latest?.created_at) return null
+                if (latest.sender === "user") return null
                 const hasUnread = getMillisecondTimestamp(latest) > lastSeenPrivateTime
                 return (
                   (!lastSeenPrivateTime || hasUnread) && (
