@@ -37,7 +37,7 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
   const [channelMetadata, setChannelMetadata] = useState<ChannelMetadata | null>(null)
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false)
   const {events} = useEventsStore()
-  const {lastSeen} = useSessionsStore()
+  const {lastSeen, lastSeenPublic, updateLastSeenPublic} = useSessionsStore()
 
   // Fetch channel metadata for public chats
   useEffect(() => {
@@ -59,11 +59,8 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
   }, [id, isPublic])
 
   const [, latest] = events.get(id)?.last() ?? []
-  const [lastSeenPublicTime, setLastSeenPublicTime] = useLocalState(
-    `sessions/${id}/lastSeen`,
-    0
-  )
   const lastSeenPrivateTime = lastSeen.get(id) || 0
+  const lastSeenPublicTime = lastSeenPublic.get(id) || 0
 
   // Fetch latest message for public chats
   useEffect(() => {
@@ -144,7 +141,7 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
       to={isPublic ? `/chats/${id}` : "/chats/chat"}
       state={{id}}
       key={id}
-      onClick={() => isPublic && setLastSeenPublicTime(Date.now())}
+      onClick={() => isPublic && updateLastSeenPublic(id)}
       className={classNames("px-2 py-4 flex items-center border-b border-custom", {
         "bg-base-300": isActive,
         "hover:bg-base-300": !isActive,
@@ -202,7 +199,7 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
                 const hasUnread = latestMessage.created_at * 1000 > lastSeenPublicTime
                 return (
                   (!lastSeenPublicTime || hasUnread) && (
-                    <div className="indicator-item badge badge-primary badge-xs"></div>
+                    <div className="indicator-item badge badge-primary badge-xs" />
                   )
                 )
               } else {
@@ -210,7 +207,7 @@ const ChatListItem = ({id, isPublic = false}: ChatListItemProps) => {
                 const hasUnread = getMillisecondTimestamp(latest) > lastSeenPrivateTime
                 return (
                   (!lastSeenPrivateTime || hasUnread) && (
-                    <div className="indicator-item badge badge-primary badge-xs"></div>
+                    <div className="indicator-item badge badge-primary badge-xs" />
                   )
                 )
               }
