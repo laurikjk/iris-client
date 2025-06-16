@@ -259,31 +259,30 @@ self.addEventListener("push", async (e) => {
         console.log("Decrypted session state for", sessionId, sessionState)
         const session = new Session(noOpSubscribe, sessionState)
         console.debug("Attempting to decrypt message with session", sessionId)
-        // @ts-ignore access private decryptHeader
-        const [header, step, skipHeader] = (session as any).decryptHeader(data.event)
-        console.debug("Decrypted header:", header, { step, skipHeader })
-        if (step) {
-          // @ts-ignore access private ratchetStep
-          (session as any).ratchetStep()
-        }
-        // @ts-ignore access private ratchetDecrypt
-        const plaintext = (session as any).ratchetDecrypt(
-          header,
-          data.event.content,
-          data.event.pubkey
-        )
-        console.debug("Decrypted plaintext:", plaintext)
-        const inner = JSON.parse(plaintext)
-        const msgText = inner.content
-        const sessionName = sessionId.split(":")[1]
-        const title = `${sessionName}: ${msgText}`
-        const url = `/chats/${encodeURIComponent(sessionId)}`
-        const icon = NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND]?.icon || "/favicon.png"
-        await self.registration.showNotification(title, {
-          icon,
-          data: {url, event: data.event},
+        // delegate decryption to the library's built-in handler
+        let innerEvent: any = null
+        const unsubscribe = session.onEvent((e) => {
+          innerEvent = e
         })
-        return
+        try {
+          // @ts-ignore access private handleNostrEvent
+          (session as any).handleNostrEvent(data.event)
+          if (innerEvent) {
+            const sessionName = sessionId.split(":")[1]
+            const title = `${sessionName}: ${innerEvent.content}`
+            const url = `/chats/${encodeURIComponent(sessionId)}`
+            const icon = NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND]?.icon || "/favicon.png"
+            await self.registration.showNotification(title, {
+              icon,
+              data: {url, event: data.event},
+            })
+            return
+          }
+        } catch (e) {
+          console.error("Failed to decrypt message with session", sessionId, e)
+        } finally {
+          unsubscribe()
+        }
       } catch (e) {
         console.error("Failed to decrypt message with session", sessionId, e)
         // decryption failed or not this session, try next
