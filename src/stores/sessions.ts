@@ -7,6 +7,7 @@ import {
 } from "nostr-double-ratchet/src"
 import {createJSONStorage, persist, PersistStorage} from "zustand/middleware"
 import {NDKEventFromRawEvent, RawEvent} from "@/utils/nostr"
+import {REACTION_KIND} from "@/pages/chats/utils/constants"
 import {MessageType} from "@/pages/chats/message/Message"
 import {Filter, VerifiedEvent} from "nostr-tools"
 import {hexToBytes} from "@noble/hashes/utils"
@@ -15,7 +16,6 @@ import localforage from "localforage"
 import {useUserStore} from "./user"
 import {ndk} from "@/utils/ndk"
 import {create} from "zustand"
-import { REACTION_KIND } from "@/pages/chats/utils/constants"
 
 // Changing storage engine doesn't trigger migration. Only version difference in storage does.
 // Here's an utility function that works around it by setting a dummy entry with version 0.
@@ -39,6 +39,7 @@ interface SessionStoreState {
   invites: Map<string, Invite>
   sessions: Map<string, Session>
   lastSeen: Map<string, number>
+  lastSeenPublic: Map<string, number>
 }
 
 const inviteListeners = new Map<string, () => void>()
@@ -55,6 +56,7 @@ interface SessionStoreActions {
     isReaction?: boolean
   ) => Promise<void>
   updateLastSeen: (sessionId: string) => void
+  updateLastSeenPublic: (sessionId: string) => void
   deleteInvite: (id: string) => void
   deleteSession: (id: string) => void
 }
@@ -72,6 +74,7 @@ const store = create<SessionStore>()(
       invites: new Map(),
       sessions: new Map(),
       lastSeen: new Map(),
+      lastSeenPublic: new Map(),
       createDefaultInvites: async () => {
         const myPubKey = useUserStore.getState().publicKey
         if (!myPubKey) {
@@ -225,6 +228,11 @@ const store = create<SessionStore>()(
         newLastSeen.set(sessionId, Date.now())
         set({lastSeen: newLastSeen})
       },
+      updateLastSeenPublic: (sessionId: string) => {
+        const newLastSeenPublic = new Map(get().lastSeenPublic)
+        newLastSeenPublic.set(sessionId, Date.now())
+        set({lastSeenPublic: newLastSeenPublic})
+      },
       deleteSession: (sessionId: string) => {
         const newSessions = new Map(get().sessions)
         newSessions.delete(sessionId)
@@ -318,10 +326,16 @@ const store = create<SessionStore>()(
         }
       },
       merge: (persistedState: unknown, currentState: SessionStore) => {
-        const state = (persistedState || {invites: [], sessions: [], lastSeen: []}) as {
+        const state = (persistedState || {
+          invites: [],
+          sessions: [],
+          lastSeen: [],
+          lastSeenPublic: [],
+        }) as {
           invites: [string, string][]
           sessions: [string, string][]
           lastSeen: [string, number][]
+          lastSeenPublic: [string, number][]
         }
         const newSessions: [string, Session][] = state.sessions.map(
           ([id, sessionState]: [string, string]) => {
@@ -340,6 +354,7 @@ const store = create<SessionStore>()(
           invites: new Map<string, Invite>(newInvites),
           sessions: new Map<string, Session>(newSessions),
           lastSeen: new Map<string, number>(state.lastSeen || []),
+          lastSeenPublic: new Map<string, number>(state.lastSeenPublic || []),
         }
       },
     }
