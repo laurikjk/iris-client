@@ -260,8 +260,12 @@ self.addEventListener("push", async (e) => {
         const session = new Session(noOpSubscribe, sessionState)
         console.debug("Attempting to decrypt message with session", sessionId)
         // @ts-ignore access private decryptHeader
-        const [header] = (session as any).decryptHeader(data.event)
-        console.debug("Decrypted header:", header)
+        const [header, step, skipHeader] = (session as any).decryptHeader(data.event)
+        console.debug("Decrypted header:", header, { step, skipHeader })
+        if (step) {
+          // @ts-ignore access private ratchetStep
+          (session as any).ratchetStep()
+        }
         // @ts-ignore access private ratchetDecrypt
         const plaintext = (session as any).ratchetDecrypt(
           header,
