@@ -145,7 +145,7 @@ const ChatList = ({className}: ChatListProps) => {
     // Get latest message time for chat A
     let aLatest = 0
     if (a.isPublic) {
-      aLatest = publicChatTimestamps[a.id] || 0
+      aLatest = (publicChatTimestamps[a.id] || 0) * 1000
     } else {
       aLatest = 0
       const [, latest] = events.get(a.id)?.last() ?? []
@@ -157,7 +157,7 @@ const ChatList = ({className}: ChatListProps) => {
     // Get latest message time for chat B
     let bLatest = 0
     if (b.isPublic) {
-      bLatest = publicChatTimestamps[b.id] || 0
+      bLatest = (publicChatTimestamps[b.id] || 0) * 1000
     } else {
       bLatest = 0
       const [, latest] = events.get(b.id)?.last() ?? []
