@@ -3,6 +3,7 @@ import {
   INVITE_EVENT_KIND,
   INVITE_RESPONSE_KIND,
   MESSAGE_EVENT_KIND,
+  Session,
   deserializeSessionState,
 } from "nostr-double-ratchet/src"
 import {PROFILE_AVATAR_WIDTH, EVENT_AVATAR_WIDTH} from "./shared/components/user/const"
@@ -14,6 +15,9 @@ import {ExpirationPlugin} from "workbox-expiration"
 import {registerRoute} from "workbox-routing"
 import {clientsClaim} from "workbox-core"
 import localforage from "localforage"
+
+// A no-op subscribe function for reconstructing Session only for decryption
+const noOpSubscribe = () => () => {}
 
 // eslint-disable-next-line no-undef
 declare const self: ServiceWorkerGlobalScope & {
@@ -232,8 +236,11 @@ self.addEventListener("push", async (e) => {
     console.debug("No sessions found")
   }
 
-  // Handle direct message notifications with session-based titles
+  // Handle encrypted direct messages by decrypting the payload
+  console.debug("Received event kind:", data.event.kind)
+  console.debug("Sessions from store:", sessionsFromStore)
   if (data.event.kind === MESSAGE_EVENT_KIND && sessionsFromStore) {
+    console.debug("Found sessions in store, attempting to decrypt message")
     let wrapper: any
     try {
       wrapper =
@@ -246,24 +253,36 @@ self.addEventListener("push", async (e) => {
     }
     const sessionEntries: Array<[string, string]> =
       wrapper?.state?.sessions ?? wrapper?.sessions ?? []
-    for (const [sessionId, sessionStateString] of sessionEntries) {
+    for (const [sessionId, stateStr] of sessionEntries) {
       try {
-        const sessionState = deserializeSessionState(sessionStateString)
-        if (sessionState.theirCurrentNostrPublicKey === data.event.pubkey) {
-          const sessionName = sessionId.split(":")[1]
-          const title = `New message from ${sessionName}`
-          const url = `/chats/${encodeURIComponent(sessionId)}`
-          const icon = NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND]?.icon || "/favicon.png"
-          await self.registration.showNotification(title, {
-            icon,
-            data: {url, event: data.event},
-          })
-          return
-        }
-        console.log("Session state for", sessionId, ":", sessionState)
-        console.log("public key:", data.event.pubkey)
-      } catch (err) {
-        console.error("Failed to deserialize session state for session", sessionId, err)
+        const sessionState = deserializeSessionState(stateStr)
+        console.log("Decrypted session state for", sessionId, sessionState)
+        const session = new Session(noOpSubscribe, sessionState)
+        console.debug("Attempting to decrypt message with session", sessionId)
+        // @ts-ignore access private decryptHeader
+        const [header] = (session as any).decryptHeader(data.event)
+        console.debug("Decrypted header:", header)
+        // @ts-ignore access private ratchetDecrypt
+        const plaintext = (session as any).ratchetDecrypt(
+          header,
+          data.event.content,
+          data.event.pubkey
+        )
+        console.debug("Decrypted plaintext:", plaintext)
+        const inner = JSON.parse(plaintext)
+        const msgText = inner.content
+        const sessionName = sessionId.split(":")[1]
+        const title = `${sessionName}: ${msgText}`
+        const url = `/chats/${encodeURIComponent(sessionId)}`
+        const icon = NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND]?.icon || "/favicon.png"
+        await self.registration.showNotification(title, {
+          icon,
+          data: {url, event: data.event},
+        })
+        return
+      } catch (e) {
+        console.error("Failed to decrypt message with session", sessionId, e)
+        // decryption failed or not this session, try next
       }
     }
   }
