@@ -1,5 +1,5 @@
 import runningOstrich from "@/assets/running-ostrich.gif"
-import React, {Suspense} from "react"
+import {Suspense} from "react"
 
 export const LoadingFallback = () => (
   <div className="flex items-center justify-center w-full h-full p-8">
