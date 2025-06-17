@@ -244,10 +244,10 @@ const tryDecryptPrivateDM = async (data: PushData): Promise<DecryptResult> => {
           continue
         }
 
-        // Re-hydrate session with a no-op subscribe
         const dummySubscribe = () => () => {}
         const session = new Session(dummySubscribe, state)
 
+        // TODO: Make a one time subscribe instead of dummy and this hack
         let innerEvent: any = null
         const off = session.onEvent((ev) => {
           console.log("got ev", ev)
@@ -255,9 +255,9 @@ const tryDecryptPrivateDM = async (data: PushData): Promise<DecryptResult> => {
         })
         ;(session as any).handleNostrEvent(data.event)
         off()
+        // ---
 
         if (innerEvent) {
-          // Persist the advanced ratchet state
           const newState = serializeSessionState(session.state)
           const newSessionEntries = sessionEntries.map(([id, state]) =>
             id === sessionId ? [id, newState] : [id, state]
