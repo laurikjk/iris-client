@@ -4,6 +4,8 @@ import {
   INVITE_RESPONSE_KIND,
   MESSAGE_EVENT_KIND,
   deserializeSessionState,
+  serializeSessionState,
+  Session,
 } from "nostr-double-ratchet/src"
 import {PROFILE_AVATAR_WIDTH, EVENT_AVATAR_WIDTH} from "./shared/components/user/const"
 import {CacheFirst, StaleWhileRevalidate} from "workbox-strategies"
@@ -212,81 +214,101 @@ const NOTIFICATION_CONFIGS: Record<
     icon: "/favicon.png",
   },
 } as const
+self.addEventListener("push", (event) => {
+  console.log("(new version) Push event received:", event)
+  event.waitUntil(
+    (async () => {
+      const data = event.data?.json() as PushData | undefined
+      console.log("(new version) data:", data)
+      if (!data?.event) return
 
-self.addEventListener("push", async (e) => {
-  const data = e.data?.json() as PushData | undefined
-  console.debug("Received web push data:", data)
+      // ----- 1. Try to decrypt a private DM ---------------------------------
+      if (data.event.kind === MESSAGE_EVENT_KIND) {
+        try {
+          const wrapper = await localforage.getItem("sessions")
+          console.log("(new version) trying")
+          if (wrapper) {
+            const parsed = typeof wrapper === "string" ? JSON.parse(wrapper) : wrapper
+            const sessionEntries: [string, string][] =
+              parsed?.state?.sessions ?? parsed?.sessions ?? []
 
-  // Check if we should show notification based on page visibility
-  // const clients = await self.clients.matchAll({type: "window", includeUncontrolled: true})
-  // const isPageVisible = clients.some((client) => client.visibilityState === "visible")
-  // if (isPageVisible) {
-  //   console.debug("Page is visible, ignoring web push")
-  //   return
-  // }
+            for (const [sessionId, serState] of sessionEntries) {
+              // Quick peer match
+              const state = deserializeSessionState(serState)
+              if (
+                state.theirCurrentNostrPublicKey !== data.event.pubkey &&
+                state.theirNextNostrPublicKey !== data.event.pubkey
+              ) {
+                continue
+              }
+              console.log("new version) found session for", sessionId)
 
-  if (!data?.event) return
+              // Re-hydrate session with a no-op subscribe
+              const dummySubscribe = () => () => {}
+              const session = new Session(dummySubscribe, state)
 
-  const sessionsFromStore = await localforage.getItem("sessions")
-  if (!sessionsFromStore) {
-    console.debug("No sessions found")
-  }
+              // Decrypt exactly one event
+              let innerEvent: any = null
+              const off = session.onEvent((ev) => {
+                console.log("got ev", ev)
+                innerEvent = ev
+              })
+              ;(session as any).handleNostrEvent(data.event)
+              off()
 
-  // Handle direct message notifications with session-based titles
-  if (data.event.kind === MESSAGE_EVENT_KIND && sessionsFromStore) {
-    let wrapper: any
-    try {
-      wrapper =
-        typeof sessionsFromStore === "string"
-          ? JSON.parse(sessionsFromStore)
-          : sessionsFromStore
-    } catch (err) {
-      console.error("Failed to parse sessions from store", err)
-      wrapper = null
-    }
-    const sessionEntries: Array<[string, string]> =
-      wrapper?.state?.sessions ?? wrapper?.sessions ?? []
-    for (const [sessionId, sessionStateString] of sessionEntries) {
-      try {
-        const sessionState = deserializeSessionState(sessionStateString)
-        if (sessionState.theirCurrentNostrPublicKey === data.event.pubkey) {
-          const sessionName = sessionId.split(":")[1]
-          const title = `New message from ${sessionName}`
-          const url = `/chats/${encodeURIComponent(sessionId)}`
-          const icon = NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND]?.icon || "/favicon.png"
-          await self.registration.showNotification(title, {
-            icon,
-            data: {url, event: data.event},
-          })
-          return
+              if (innerEvent) {
+                // Persist the advanced ratchet state
+                // const newSer = serializeSessionState(session.state)
+                // const target = sessionEntries.find((e) => e[0] === sessionId)!
+                // target[1] = newSer
+                // await localforage.setItem(
+                //   "sessions",
+                //   JSON.stringify({
+                //     ...parsed,
+                //     state: {...parsed.state, sessions: sessionEntries},
+                //   })
+                // )
+
+                // Show decrypted notification
+                await self.registration.showNotification(
+                  `New message from ${sessionId.split(":")[1]}`,
+                  {
+                    body: innerEvent.content,
+                    icon: NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND].icon,
+                    data: {
+                      url: `/chats/${encodeURIComponent(sessionId)}`,
+                      event: data.event,
+                    },
+                  }
+                )
+                return // done!
+              }
+            }
+          }
+        } catch (err) {
+          console.error("DM decryption failed:", err)
         }
-        console.log("Session state for", sessionId, ":", sessionState)
-        console.log("public key:", data.event.pubkey)
-      } catch (err) {
-        console.error("Failed to deserialize session state for session", sessionId, err)
       }
-    }
-  }
 
-  // Handle predefined notification types
-  if (NOTIFICATION_CONFIGS[data.event.kind]) {
-    const config = NOTIFICATION_CONFIGS[data.event.kind]
-    await self.registration.showNotification(config.title, {
-      icon: config.icon,
-      data: {url: config.url, event: data.event},
-    })
-    return
-  }
+      // ----- 2. Fallback to predefined or generic notifications --------------
+      if (NOTIFICATION_CONFIGS[data.event.kind]) {
+        const cfg = NOTIFICATION_CONFIGS[data.event.kind]
+        await self.registration.showNotification(cfg.title, {
+          icon: cfg.icon,
+          data: {url: cfg.url, event: data.event},
+        })
+        return
+      }
 
-  // Handle custom notifications
-  const icon =
-    data.icon && data.icon.startsWith("http")
-      ? generateProxyUrl(data.icon, {width: 128, square: true})
-      : data.icon || "/favicon.png"
+      const icon = data.icon?.startsWith("http")
+        ? generateProxyUrl(data.icon, {width: 128, square: true})
+        : data.icon || "/favicon.png"
 
-  await self.registration.showNotification(data.title || "New notification", {
-    body: data.body,
-    icon,
-    data,
-  })
+      await self.registration.showNotification(data.title || "New notification", {
+        body: data.body,
+        icon,
+        data,
+      })
+    })()
+  )
 })
