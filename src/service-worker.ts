@@ -214,83 +214,101 @@ const NOTIFICATION_CONFIGS: Record<
     icon: "/favicon.png",
   },
 } as const
+
+type DecryptResult =
+  | {
+      success: false
+    }
+  | {
+      success: true
+      content: string
+      sessionId: string
+    }
+
+const tryDecryptPrivateDM = async (data: PushData): Promise<DecryptResult> => {
+  try {
+    const wrapper = await localforage.getItem("sessions")
+    console.debug("(new version) trying")
+    if (wrapper) {
+      const parsed = typeof wrapper === "string" ? JSON.parse(wrapper) : wrapper
+      const sessionEntries: [string, string][] =
+        parsed?.state?.sessions ?? parsed?.sessions ?? []
+
+      for (const [sessionId, serState] of sessionEntries) {
+        const state = deserializeSessionState(serState)
+        if (
+          state.theirCurrentNostrPublicKey !== data.event.pubkey &&
+          state.theirNextNostrPublicKey !== data.event.pubkey
+        ) {
+          continue
+        }
+
+        // Re-hydrate session with a no-op subscribe
+        const dummySubscribe = () => () => {}
+        const session = new Session(dummySubscribe, state)
+
+        // Decrypt exactly one event
+        let innerEvent: any = null
+        const off = session.onEvent((ev) => {
+          console.log("got ev", ev)
+          innerEvent = ev
+        })
+        ;(session as any).handleNostrEvent(data.event)
+        off()
+
+        if (innerEvent) {
+          // Persist the advanced ratchet state
+          // const newSer = serializeSessionState(session.state)
+          // const target = sessionEntries.find((e) => e[0] === sessionId)!
+          // target[1] = newSer
+          // await localforage.setItem(
+          //   "sessions",
+          //   JSON.stringify({
+          //     ...parsed,
+          //     state: {...parsed.state, sessions: sessionEntries},
+          //   })
+          // )
+
+          // Show decrypted notification
+          return {
+            success: true,
+            content: innerEvent.content,
+            sessionId,
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("DM decryption failed:", err)
+  }
+  return {
+    success: false,
+  }
+}
+
 self.addEventListener("push", (event) => {
-  console.log("(new version) Push event received:", event)
+  console.log("got a push")
   event.waitUntil(
     (async () => {
       const data = event.data?.json() as PushData | undefined
       console.log("(new version) data:", data)
       if (!data?.event) return
 
-      // ----- 1. Try to decrypt a private DM ---------------------------------
       if (data.event.kind === MESSAGE_EVENT_KIND) {
-        try {
-          const wrapper = await localforage.getItem("sessions")
-          console.log("(new version) trying")
-          if (wrapper) {
-            const parsed = typeof wrapper === "string" ? JSON.parse(wrapper) : wrapper
-            const sessionEntries: [string, string][] =
-              parsed?.state?.sessions ?? parsed?.sessions ?? []
-
-            for (const [sessionId, serState] of sessionEntries) {
-              // Quick peer match
-              const state = deserializeSessionState(serState)
-              if (
-                state.theirCurrentNostrPublicKey !== data.event.pubkey &&
-                state.theirNextNostrPublicKey !== data.event.pubkey
-              ) {
-                continue
-              }
-              console.log("new version) found session for", sessionId)
-
-              // Re-hydrate session with a no-op subscribe
-              const dummySubscribe = () => () => {}
-              const session = new Session(dummySubscribe, state)
-
-              // Decrypt exactly one event
-              let innerEvent: any = null
-              const off = session.onEvent((ev) => {
-                console.log("got ev", ev)
-                innerEvent = ev
-              })
-              ;(session as any).handleNostrEvent(data.event)
-              off()
-
-              if (innerEvent) {
-                // Persist the advanced ratchet state
-                // const newSer = serializeSessionState(session.state)
-                // const target = sessionEntries.find((e) => e[0] === sessionId)!
-                // target[1] = newSer
-                // await localforage.setItem(
-                //   "sessions",
-                //   JSON.stringify({
-                //     ...parsed,
-                //     state: {...parsed.state, sessions: sessionEntries},
-                //   })
-                // )
-
-                // Show decrypted notification
-                await self.registration.showNotification(
-                  `New message from ${sessionId.split(":")[1]}`,
-                  {
-                    body: innerEvent.content,
-                    icon: NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND].icon,
-                    data: {
-                      url: `/chats/${encodeURIComponent(sessionId)}`,
-                      event: data.event,
-                    },
-                  }
-                )
-                return // done!
-              }
-            }
-          }
-        } catch (err) {
-          console.error("DM decryption failed:", err)
+        const result = await tryDecryptPrivateDM(data)
+        if (result.success) {
+          await self.registration.showNotification("new private message", {
+            body: result.content,
+            icon: NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND].icon,
+            data: {
+              url: `/chats/${encodeURIComponent(result.sessionId)}`,
+              event: data.event,
+            },
+          })
+          return
         }
       }
 
-      // ----- 2. Fallback to predefined or generic notifications --------------
       if (NOTIFICATION_CONFIGS[data.event.kind]) {
         const cfg = NOTIFICATION_CONFIGS[data.event.kind]
         await self.registration.showNotification(cfg.title, {
