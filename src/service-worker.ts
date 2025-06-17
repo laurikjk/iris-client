@@ -13,6 +13,7 @@ import {CacheableResponsePlugin} from "workbox-cacheable-response"
 import {precacheAndRoute, PrecacheEntry} from "workbox-precaching"
 import {generateProxyUrl} from "./shared/utils/imgproxy"
 import {ExpirationPlugin} from "workbox-expiration"
+import {save} from "./utils/messageRepository"
 import {registerRoute} from "workbox-routing"
 import {clientsClaim} from "workbox-core"
 import localforage from "localforage"
@@ -247,7 +248,6 @@ const tryDecryptPrivateDM = async (data: PushData): Promise<DecryptResult> => {
         const dummySubscribe = () => () => {}
         const session = new Session(dummySubscribe, state)
 
-        // Decrypt exactly one event
         let innerEvent: any = null
         const off = session.onEvent((ev) => {
           console.log("got ev", ev)
@@ -258,18 +258,21 @@ const tryDecryptPrivateDM = async (data: PushData): Promise<DecryptResult> => {
 
         if (innerEvent) {
           // Persist the advanced ratchet state
-          // const newSer = serializeSessionState(session.state)
-          // const target = sessionEntries.find((e) => e[0] === sessionId)!
-          // target[1] = newSer
-          // await localforage.setItem(
-          //   "sessions",
-          //   JSON.stringify({
-          //     ...parsed,
-          //     state: {...parsed.state, sessions: sessionEntries},
-          //   })
-          // )
+          const newState = serializeSessionState(session.state)
+          const newSessionEntries = sessionEntries.map(([id, state]) =>
+            id === sessionId ? [id, newState] : [id, state]
+          )
 
-          // Show decrypted notification
+          await save(sessionId, innerEvent)
+
+          await localforage.setItem(
+            "sessions",
+            JSON.stringify({
+              ...parsed,
+              state: {...parsed.state, sessions: newSessionEntries},
+            })
+          )
+
           return {
             success: true,
             content: innerEvent.content,
