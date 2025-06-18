@@ -259,7 +259,7 @@ const tryDecryptPrivateDM = async (data: PushData): Promise<DecryptResult> => {
           })
         })
 
-        if (unsubscribe) unsubscribe()
+        unsubscribe?.()
 
         if (innerEvent === null) {
           return {
