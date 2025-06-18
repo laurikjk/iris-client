@@ -257,21 +257,6 @@ const tryDecryptPrivateDM = async (data: PushData): Promise<DecryptResult> => {
         // ---
 
         if (innerEvent) {
-          const newState = serializeSessionState(session.state)
-          const newSessionEntries = sessionEntries.map(([id, state]) =>
-            id === sessionId ? [id, newState] : [id, state]
-          )
-
-          await save(sessionId, innerEvent)
-
-          await localforage.setItem(
-            "sessions",
-            JSON.stringify({
-              ...parsed,
-              state: {...parsed.state, sessions: newSessionEntries},
-            })
-          )
-
           return {
             success: true,
             content: innerEvent.content,
@@ -308,14 +293,17 @@ self.addEventListener("push", (event) => {
       if (data.event.kind === MESSAGE_EVENT_KIND) {
         const result = await tryDecryptPrivateDM(data)
         if (result.success) {
-          await self.registration.showNotification("new private message", {
-            body: result.content,
-            icon: NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND].icon,
-            data: {
-              url: `/chats/${encodeURIComponent(result.sessionId)}`,
-              event: data.event,
-            },
-          })
+          await self.registration.showNotification(
+            NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND].title,
+            {
+              body: result.content,
+              icon: NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND].icon,
+              data: {
+                url: `/chats/${encodeURIComponent(result.sessionId)}`,
+                event: data.event,
+              },
+            }
+          )
           return
         }
       }
