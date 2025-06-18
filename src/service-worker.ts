@@ -13,10 +13,18 @@ import {CacheableResponsePlugin} from "workbox-cacheable-response"
 import {precacheAndRoute, PrecacheEntry} from "workbox-precaching"
 import {generateProxyUrl} from "./shared/utils/imgproxy"
 import {ExpirationPlugin} from "workbox-expiration"
-import {VerifiedEvent} from "nostr-tools"
 import {registerRoute} from "workbox-routing"
 import {clientsClaim} from "workbox-core"
+import {VerifiedEvent} from "nostr-tools"
 import localforage from "localforage"
+
+type StoredProfiles = [string, {username: string}][]
+async function getUsername(pubKey: string): Promise<string> {
+  const entries = await localforage.getItem<StoredProfiles>("PROFILE_SEARCH_DATA")
+  const map = new Map(entries || [])
+  console.debug("Profile", map.get(pubKey), pubKey)
+  return map.get(pubKey)?.username ?? pubKey.slice(0, 8)
+}
 
 // eslint-disable-next-line no-undef
 declare const self: ServiceWorkerGlobalScope & {
@@ -297,17 +305,16 @@ self.addEventListener("push", (event) => {
       if (data.event.kind === MESSAGE_EVENT_KIND) {
         const result = await tryDecryptPrivateDM(data)
         if (result.success) {
-          await self.registration.showNotification(
-            NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND].title,
-            {
-              body: result.content,
-              icon: NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND].icon,
-              data: {
-                url: `/chats/${encodeURIComponent(result.sessionId)}`,
-                event: data.event,
-              },
-            }
-          )
+          const [pubKey] = result.sessionId.split(":")
+          const username = await getUsername(pubKey)
+          await self.registration.showNotification(username, {
+            body: result.content,
+            icon: NOTIFICATION_CONFIGS[MESSAGE_EVENT_KIND].icon,
+            data: {
+              url: `/chats/${encodeURIComponent(result.sessionId)}`,
+              event: data.event,
+            },
+          })
           return
         }
       }

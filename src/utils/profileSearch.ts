@@ -1,5 +1,7 @@
 import {NDKUserProfile} from "@nostr-dev-kit/ndk"
 import {profileCache} from "./memcache"
+import debounce from "lodash/debounce"
+import localforage from "localforage"
 import Fuse from "fuse.js"
 
 export type SearchResult = {
@@ -14,6 +16,13 @@ let searchIndex: Fuse<SearchResult> = new Fuse<SearchResult>([], {
   keys: ["name", "nip05"],
   includeScore: true,
 })
+
+const saveProfileCache = debounce(async () => {
+  await localforage.setItem<[string, {username: string}][]>(
+    "PROFILE_SEARCH_DATA",
+    Array.from(profileCache.entries())
+  )
+}, 5000)
 
 async function initializeSearchIndex() {
   console.time("fuse init")
@@ -41,6 +50,7 @@ async function initializeSearchIndex() {
     includeScore: true,
   })
   console.timeEnd("fuse init")
+  saveProfileCache()
 }
 
 initializeSearchIndex().catch(console.error)
@@ -59,6 +69,7 @@ export function handleProfile(pubKey: string, profile: NDKUserProfile) {
         // should we have our internal map and reconstruct the searchIndex from it with debounce?
         searchIndex.remove((profile) => profile.pubKey === pubKey)
         searchIndex.add({name, pubKey, nip05})
+        saveProfileCache()
       }
     }
   })
