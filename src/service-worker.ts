@@ -229,7 +229,6 @@ type DecryptResult =
 const tryDecryptPrivateDM = async (data: PushData): Promise<DecryptResult> => {
   try {
     const wrapper = await localforage.getItem("sessions")
-    console.debug("(new version) trying")
     if (wrapper) {
       const parsed = typeof wrapper === "string" ? JSON.parse(wrapper) : wrapper
       const sessionEntries: [string, string][] =
@@ -290,11 +289,20 @@ const tryDecryptPrivateDM = async (data: PushData): Promise<DecryptResult> => {
 }
 
 self.addEventListener("push", (event) => {
-  console.log("got a push")
   event.waitUntil(
     (async () => {
+      // Check if we should show notification based on page visibility
+      const clients = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      })
+      const isPageVisible = clients.some((client) => client.visibilityState === "visible")
+      if (isPageVisible) {
+        console.debug("Page is visible, ignoring web push")
+        return
+      }
+
       const data = event.data?.json() as PushData | undefined
-      console.log("(new version) data:", data)
       if (!data?.event) return
 
       if (data.event.kind === MESSAGE_EVENT_KIND) {
@@ -313,10 +321,10 @@ self.addEventListener("push", (event) => {
       }
 
       if (NOTIFICATION_CONFIGS[data.event.kind]) {
-        const cfg = NOTIFICATION_CONFIGS[data.event.kind]
-        await self.registration.showNotification(cfg.title, {
-          icon: cfg.icon,
-          data: {url: cfg.url, event: data.event},
+        const config = NOTIFICATION_CONFIGS[data.event.kind]
+        await self.registration.showNotification(config.title, {
+          icon: config.icon,
+          data: {url: config.url, event: data.event},
         })
         return
       }
