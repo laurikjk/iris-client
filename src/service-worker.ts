@@ -6,13 +6,16 @@ import {
   deserializeSessionState,
   serializeSessionState,
   Session,
+  Rumor,
 } from "nostr-double-ratchet/src"
 import {PROFILE_AVATAR_WIDTH, EVENT_AVATAR_WIDTH} from "./shared/components/user/const"
 import {CacheFirst, StaleWhileRevalidate} from "workbox-strategies"
 import {CacheableResponsePlugin} from "workbox-cacheable-response"
 import {precacheAndRoute, PrecacheEntry} from "workbox-precaching"
+import {MessageType} from "./pages/chats/message/Message"
 import {generateProxyUrl} from "./shared/utils/imgproxy"
 import {ExpirationPlugin} from "workbox-expiration"
+import {Filter, VerifiedEvent} from "nostr-tools"
 import {save} from "./utils/messageRepository"
 import {registerRoute} from "workbox-routing"
 import {clientsClaim} from "workbox-core"
@@ -243,25 +246,33 @@ const tryDecryptPrivateDM = async (data: PushData): Promise<DecryptResult> => {
           continue
         }
 
-        const dummySubscribe = () => () => {}
-        const session = new Session(dummySubscribe, state)
+        const oneTimeSubscribe = (
+          _filter: Filter,
+          onEvent: (event: VerifiedEvent) => void
+        ) => {
+          onEvent(data.event as unknown as VerifiedEvent)
+          return () => {}
+        }
+        const session = new Session(oneTimeSubscribe, state)
 
-        // TODO: Make a one time subscribe instead of dummy and this hack
-        let innerEvent: any = null
-        const off = session.onEvent((ev) => {
-          console.log("got ev", ev)
-          innerEvent = ev
+        let unsubscribe: (() => void) | undefined
+        const innerEvent = await new Promise<Rumor | null>((resolve) => {
+          unsubscribe = session.onEvent((event) => {
+            resolve(event)
+          })
         })
-        ;(session as any).handleNostrEvent(data.event)
-        off()
-        // ---
 
-        if (innerEvent) {
+        if (unsubscribe) unsubscribe()
+
+        if (innerEvent === null) {
           return {
-            success: true,
-            content: innerEvent.content,
-            sessionId,
+            success: false,
           }
+        }
+        return {
+          success: true,
+          content: innerEvent.content,
+          sessionId,
         }
       }
     }
