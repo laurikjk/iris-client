@@ -236,21 +236,18 @@ const tryDecryptPrivateDM = async (data: PushData): Promise<DecryptResult> => {
 
       for (const [sessionId, serState] of sessionEntries) {
         const state = deserializeSessionState(serState)
-        if (
-          state.theirCurrentNostrPublicKey !== data.event.pubkey &&
-          state.theirNextNostrPublicKey !== data.event.pubkey
-        ) {
+        const foundMatchingPubKey =
+          state.theirCurrentNostrPublicKey === data.event.pubkey ||
+          state.theirNextNostrPublicKey === data.event.pubkey
+
+        if (!foundMatchingPubKey) {
           continue
         }
 
-        const oneTimeSubscribe = (
-          _filter: Filter,
-          onEvent: (event: VerifiedEvent) => void
-        ) => {
+        const session = new Session((_, onEvent) => {
           onEvent(data.event as unknown as VerifiedEvent)
           return () => {}
-        }
-        const session = new Session(oneTimeSubscribe, state)
+        }, state)
 
         let unsubscribe: (() => void) | undefined
         const innerEvent = await new Promise<Rumor | null>((resolve) => {
