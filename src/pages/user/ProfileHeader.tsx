@@ -48,6 +48,26 @@ const ProfileHeader = ({pubKey}: {pubKey: string}) => {
       return () => sub.stop()
     }
     const unsub = Invite.fromUser(pubKeyHex, subscribe, (invite) => setInvite(invite))
+
+    const fetchInvite = async () => {
+      try {
+        const events = await ndk().fetchEvents({
+          kinds: [30078],
+          authors: [pubKeyHex],
+          "#d": ["double-ratchet/invites/public"],
+          limit: 1,
+        })
+        const event = Array.from(events)[0]
+        if (event) {
+          setInvite(Invite.fromEvent(event.rawEvent() as unknown as VerifiedEvent))
+        }
+      } catch (e) {
+        console.warn("Failed to fetch invite", e)
+      }
+    }
+
+    fetchInvite()
+
     return unsub
   }, [myPubKey, pubKeyHex])
 
